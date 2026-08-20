@@ -1,4 +1,4 @@
-.PHONY: verify test lint up down rebuild
+.PHONY: verify test lint up down rebuild install update uninstall
 
 verify: test lint
 
@@ -24,3 +24,12 @@ down:
 
 rebuild:
 	podman-compose up --build -d --force-recreate api worker web radius
+
+install:
+	./scripts/install.sh --skip-pkgs
+
+update:
+	./scripts/update.sh
+
+uninstall:
+	./scripts/uninstall.sh

@@ -7,7 +7,7 @@ from app.radius_flow import handle_access_request
 from app.settings_service import LdapConfig
 
 
-def test_radius_totp_challenge_and_accept(db_session, seeded_user, fake_redis):
+def test_radius_totp_challenge_and_accept(db_session, seeded_user, fake_redis, ldap_ok):
     step1 = handle_access_request(db_session, "demo", "demo", None)
     assert step1["decision"] == "challenge"
     state = step1["state"]
@@ -16,12 +16,13 @@ def test_radius_totp_challenge_and_accept(db_session, seeded_user, fake_redis):
     assert step2["decision"] == "accept"
 
 
-def test_radius_reject_bad_password(db_session, seeded_user, fake_redis):
+def test_radius_reject_bad_password(db_session, seeded_user, fake_redis, monkeypatch):
+    monkeypatch.setattr("app.radius_flow.authenticate_ldap", lambda *a, **k: False)
     out = handle_access_request(db_session, "demo", "bad", None)
     assert out["decision"] == "reject"
 
 
-def test_radius_replay_state(db_session, seeded_user, fake_redis):
+def test_radius_replay_state(db_session, seeded_user, fake_redis, ldap_ok):
     step1 = handle_access_request(db_session, "demo", "demo", None)
     state = step1["state"]
     code = pyotp.TOTP("JBSWY3DPEHPK3PXP").now()
@@ -30,7 +31,7 @@ def test_radius_replay_state(db_session, seeded_user, fake_redis):
     assert replay["decision"] == "reject"
 
 
-def test_expressms_flow_dry_run(db_session, fake_redis):
+def test_expressms_flow_dry_run(db_session, fake_redis, ldap_ok):
     db_session.add(Policy())
     user = User(ad_username="ems", otp_method="EXPRESSMS", expressms_id="u-1")
     db_session.add(user)
@@ -42,7 +43,7 @@ def test_expressms_flow_dry_run(db_session, fake_redis):
         send.assert_called_once()
 
 
-def test_telegram_flow_dry_run(db_session, fake_redis):
+def test_telegram_flow_dry_run(db_session, fake_redis, ldap_ok):
     db_session.add(Policy())
     user = User(ad_username="tg1", otp_method="TELEGRAM", telegram_chat_id="12345")
     db_session.add(user)
@@ -57,8 +58,8 @@ def test_telegram_flow_dry_run(db_session, fake_redis):
 def test_ldap_config_from_settings(db_session, fake_redis):
     from app.settings_service import ldap_config, set_raw
 
-    set_raw(db_session, "ldap.mock", "true")
-    set_raw(db_session, "ldap.mock_password", "secret")
+    set_raw(db_session, "ldap.base_dn", "DC=Merl,DC=loc")
+    set_raw(db_session, "ldap.bind_user", "svc")
     cfg = ldap_config(db_session)
-    assert cfg.mock is True
-    assert cfg.mock_password == "secret"
+    assert cfg.base_dn == "DC=Merl,DC=loc"
+    assert cfg.bind_user == "svc"

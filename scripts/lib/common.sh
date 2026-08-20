@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+# Общие функции для install / uninstall / update Own 2FA.
+# shellcheck disable=SC2034
+
+set -euo pipefail
+
+_OWN2FA_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${_OWN2FA_LIB_DIR}/../.." && pwd)"
+
+# shellcheck disable=SC2034
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$REPO_ROOT" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')}"
+if [[ -z "$COMPOSE_PROJECT_NAME" ]]; then
+  COMPOSE_PROJECT_NAME="own2fa"
+fi
+
+log()  { printf '[own2fa] %s\n' "$*"; }
+warn() { printf '[own2fa] WARN: %s\n' "$*" >&2; }
+die()  { printf '[own2fa] ERROR: %s\n' "$*" >&2; exit 1; }
+
+need_root() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    die "нужен root (sudo). Сейчас uid=${EUID}"
+  fi
+}
+
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+detect_pkg_manager() {
+  if have_cmd apt-get; then echo apt
+  elif have_cmd dnf; then echo dnf
+  elif have_cmd yum; then echo yum
+  elif have_cmd zypper; then echo zypper
+  elif have_cmd pacman; then echo pacman
+  elif have_cmd apk; then echo apk
+  else echo none
+  fi
+}
+
+pkg_install() {
+  local pm
+  pm="$(detect_pkg_manager)"
+  [[ "$pm" != none ]] || die "неизвестный пакетный менеджер (нужны apt/dnf/yum/zypper/pacman/apk)"
+  case "$pm" in
+    apt)
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -y
+      apt-get install -y "$@"
+      ;;
+    dnf) dnf install -y "$@" ;;
+    yum) yum install -y "$@" ;;
+    zypper) zypper --non-interactive install -y "$@" ;;
+    pacman) pacman -Sy --noconfirm "$@" ;;
+    apk) apk add --no-cache "$@" ;;
+  esac
+}
+
+# Пакеты по семейству ОС (имена могут отличаться — ставим что есть).
+install_host_packages() {
+  local pm pkg pkgs=()
+  pm="$(detect_pkg_manager)"
+  log "пакетный менеджер: $pm"
+
+  case "$pm" in
+    apt)
+      pkg_install curl ca-certificates git openssl python3 python3-pip \
+        podman uidmap slirp4netns || die "базовые пакеты (apt) не установились"
+      apt-get install -y podman-compose 2>/dev/null || true
+      apt-get install -y freeradius-utils 2>/dev/null || true
+      ;;
+    dnf|yum)
+      pkg_install curl ca-certificates git openssl python3 python3-pip \
+        podman containernetworking-plugins || die "базовые пакеты (dnf/yum) не установились"
+      if have_cmd dnf; then
+        dnf install -y podman-compose 2>/dev/null || true
+        dnf install -y freeradius-utils 2>/dev/null || true
+      else
+        yum install -y podman-compose 2>/dev/null || true
+        yum install -y freeradius-utils 2>/dev/null || true
+      fi
+      ;;
+    zypper)
+      pkg_install curl ca-certificates git openssl python3 python3-pip podman \
+        || die "базовые пакеты (zypper) не установились"
+      ;;
+    pacman)
+      pkg_install curl ca-certificates git openssl python python-pip podman \
+        || die "базовые пакеты (pacman) не установились"
+      ;;
+    apk)
+      pkg_install curl ca-certificates git openssl python3 py3-pip podman \
+        || die "базовые пакеты (apk) не установились"
+      ;;
+  esac
+
+  have_cmd podman || have_cmd docker || die "нет podman и docker после установки пакетов"
+
+  # compose: пакет или pip
+  if have_cmd podman && ! have_cmd podman-compose; then
+    log "ставим podman-compose через pip3"
+    pip3 install --upgrade podman-compose \
+      || die "pip3 install podman-compose не удался"
+  fi
+
+  # Docker fallback, если podman так и не появился
+  if ! have_cmd podman && have_cmd docker; then
+    log "используем Docker (podman недоступен)"
+    if ! docker compose version >/dev/null 2>&1 && ! have_cmd docker-compose; then
+      warn "нет docker compose — поставьте docker-compose-plugin вручную"
+    fi
+  fi
+}
+
+detect_engine() {
+  if have_cmd podman && (have_cmd podman-compose || python3 -c "import podman_compose" 2>/dev/null || have_cmd docker-compose); then
+    echo podman
+  elif have_cmd docker && docker compose version >/dev/null 2>&1; then
+    echo docker
+  elif have_cmd docker && have_cmd docker-compose; then
+    echo docker-compose
+  else
+    echo none
+  fi
+}
+
+# Запуск compose: учитываем PYTHONPATH для pip-установки на EL.
+compose() {
+  local engine
+  engine="$(detect_engine)"
+  cd "$REPO_ROOT"
+  case "$engine" in
+    podman)
+      if have_cmd podman-compose; then
+        # CentOS/RHEL lab: pip в /usr/local
+        env PYTHONPATH="${PYTHONPATH:-}${PYTHONPATH:+:}/usr/local/lib/python3.9/site-packages:/usr/local/lib/python3.11/site-packages:/usr/local/lib/python3.12/site-packages" \
+          podman-compose "$@"
+      else
+        die "podman есть, podman-compose нет — перезапустите install"
+      fi
+      ;;
+    docker)
+      docker compose "$@"
+      ;;
+    docker-compose)
+      docker-compose "$@"
+      ;;
+    *)
+      die "нет podman-compose / docker compose. Запустите scripts/install.sh"
+      ;;
+  esac
+}
+
+rand_b64() {
+  openssl rand -base64 "$1" | tr -d '\n' | tr '+/' '-_'
+}
+
+rand_hex() {
+  openssl rand -hex "$1" | tr -d '\n'
+}
+
+# Fernet: 32 байта → url-safe base64
+gen_fernet_key() {
+  openssl rand -base64 32 | tr -d '\n'
+}
+
+ensure_env_file() {
+  local envf="${REPO_ROOT}/.env"
+  local ex="${REPO_ROOT}/.env.example"
+  [[ -f "$ex" ]] || die "нет .env.example в $REPO_ROOT"
+
+  if [[ -f "$envf" ]]; then
+    log ".env уже есть — не перезаписываю"
+    return 0
+  fi
+
+  log "создаю .env из .env.example + сгенерированные секреты"
+  cp "$ex" "$envf"
+
+  local fernet pg jwt internal radius admin_pass
+  fernet="$(gen_fernet_key)"
+  pg="$(rand_hex 16)"
+  jwt="$(rand_hex 24)"
+  internal="$(rand_hex 24)"
+  radius="$(rand_hex 12)"
+  admin_pass="$(rand_hex 8)"
+
+  # portable sed in-place
+  _env_set() {
+    local key="$1" val="$2"
+    if grep -q "^${key}=" "$envf"; then
+      # escape for sed
+      local esc
+      esc="$(printf '%s' "$val" | sed -e 's/[\/&]/\\&/g')"
+      sed -i.bak "s|^${key}=.*|${key}=${esc}|" "$envf"
+    else
+      printf '%s=%s\n' "$key" "$val" >>"$envf"
+    fi
+  }
+
+  _env_set APP_ENCRYPTION_KEY "$fernet"
+  _env_set POSTGRES_PASSWORD "$pg"
+  _env_set JWT_SECRET "$jwt"
+  _env_set INTERNAL_API_TOKEN "$internal"
+  _env_set RADIUS_SECRET "$radius"
+  _env_set ADMIN_PASSWORD "$admin_pass"
+  # lab defaults из example; LDAP настраивается в панели
+  rm -f "${envf}.bak"
+
+  umask 077
+  chmod 600 "$envf" 2>/dev/null || true
+
+  cat >"${REPO_ROOT}/.install-credentials.txt" <<EOF
+# Сгенерировано $(date -u +%Y-%m-%dT%H:%MZ) — смените после первого входа. Не коммитить.
+ADMIN_USERNAME=$(grep '^ADMIN_USERNAME=' "$envf" | cut -d= -f2-)
+ADMIN_PASSWORD=${admin_pass}
+RADIUS_SECRET=${radius}
+POSTGRES_PASSWORD=${pg}
+EOF
+  chmod 600 "${REPO_ROOT}/.install-credentials.txt" 2>/dev/null || true
+  log "учётные данные: ${REPO_ROOT}/.install-credentials.txt"
+}
+
+wait_health() {
+  local url="${1:-https://127.0.0.1/health}"
+  local i
+  log "ждём health: $url"
+  for i in $(seq 1 60); do
+    if curl -skf "$url" >/dev/null 2>&1; then
+      log "health OK (${i}s)"
+      return 0
+    fi
+    # fallback API
+    if curl -sf "http://127.0.0.1:8000/health" >/dev/null 2>&1; then
+      log "API health OK (${i}s)"
+      return 0
+    fi
+    sleep 2
+  done
+  die "health не поднялся за ~120с. Смотри: podman-compose -f ${REPO_ROOT}/docker-compose.yml logs"
+}
+
+compose_down() {
+  compose down "$@" || true
+}
+
+compose_up_build() {
+  # Полный down+up — иначе на lab новый образ api часто не подхватывается
+  log "podman/docker compose: build + up"
+  compose down || true
+  compose up --build -d
+}
+
+alembic_upgrade() {
+  local cname
+  # типичные имена: 2fa_api_1, own2fa_api_1
+  for cname in "${COMPOSE_PROJECT_NAME}_api_1" "2fa_api_1" "own2fa_api_1"; do
+    if have_cmd podman && podman inspect "$cname" >/dev/null 2>&1; then
+      log "alembic upgrade head в $cname"
+      podman exec "$cname" alembic upgrade head || warn "alembic в $cname не прошёл"
+      return 0
+    fi
+    if have_cmd docker && docker inspect "$cname" >/dev/null 2>&1; then
+      log "alembic upgrade head в $cname"
+      docker exec "$cname" alembic upgrade head || warn "alembic в $cname не прошёл"
+      return 0
+    fi
+  done
+  # поиск по имени
+  if have_cmd podman; then
+    cname="$(podman ps --format '{{.Names}}' | grep -E '_api(_|$)' | head -1 || true)"
+    if [[ -n "$cname" ]]; then
+      podman exec "$cname" alembic upgrade head || true
+      return 0
+    fi
+  fi
+  warn "контейнер api не найден — миграции должны были пройти в entrypoint"
+}
+
+open_firewall_hint() {
+  log "порты: TCP 80,443 (и опционально 8000); UDP 1812 (RADIUS)"
+  if have_cmd firewall-cmd; then
+    warn "firewalld: firewall-cmd --permanent --add-service=http --add-service=https && firewall-cmd --permanent --add-port=1812/udp && firewall-cmd --reload"
+  elif have_cmd ufw; then
+    warn "ufw: ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 1812/udp && ufw reload"
+  fi
+}

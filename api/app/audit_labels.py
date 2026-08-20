@@ -1,4 +1,7 @@
 EVENT_LABELS: dict[str, str] = {
+    "PANEL_USER_CREATE": "Создание пользователя панели",
+    "PANEL_USER_PATCH": "Изменение пользователя панели",
+    "PANEL_LOGIN_AD": "Вход в панель через AD",
     "USER_PATCH": "Изменение пользователя",
     "TOTP_ISSUE": "Выпуск TOTP",
     "TOTP_ENROLL_OK": "TOTP подтверждён",
@@ -59,8 +62,6 @@ METHOD_LABELS: dict[str, str] = {
 }
 
 SETTINGS_KEY_LABELS: dict[str, str] = {
-    "ldap_mock": "Mock LDAP",
-    "ldap_mock_password": "Пароль mock",
     "ldap_use_ssl": "LDAPS",
     "ldap_base_dn": "Base DN",
     "ldap_user_attr": "Атрибут логина",
@@ -68,6 +69,8 @@ SETTINGS_KEY_LABELS: dict[str, str] = {
     "ldap_bind_password": "Пароль bind",
     "ldap_sync_ou": "OU для загрузки",
     "ldap_sync_group": "Группа AD для загрузки",
+    "panel_operator_group": "Группа AD операторов панели",
+    "panel_auditor_group": "Группа AD аудиторов панели",
     "radius_shared_secret": "RADIUS secret",
     "radius_port": "RADIUS порт",
     "radius_allowed_clients": "Разрешённые NAS",

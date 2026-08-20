@@ -1,5 +1,42 @@
 const $ = (s) => document.querySelector(s);
 let token = localStorage.getItem("mfa_token") || "";
+let meRole = localStorage.getItem("mfa_role") || "";
+let meUser = localStorage.getItem("mfa_user") || "";
+let meAuthSource = localStorage.getItem("mfa_auth_source") || "local";
+
+function isAdmin() {
+  return meRole === "admin";
+}
+function isOperator() {
+  return meRole === "operator";
+}
+function isAuditor() {
+  return meRole === "auditor";
+}
+
+function applyRoleNav() {
+  const show = {
+    dash: true,
+    tokens: isAdmin() || isOperator() || isAuditor(),
+    users: isAdmin() || isOperator(),
+    policy: isAdmin(),
+    audit: isAdmin() || isAuditor(),
+    settings: isAdmin(),
+  };
+  document.querySelectorAll(".nav-item").forEach((b) => {
+    const tab = b.dataset.tab;
+    b.classList.toggle("hidden", !show[tab]);
+  });
+  const syncBtn = $("#sync-ldap-btn");
+  if (syncBtn) syncBtn.classList.toggle("hidden", !isAdmin());
+  const pwdBtn = $("#change-password-btn");
+  if (pwdBtn) pwdBtn.classList.toggle("hidden", meAuthSource === "ldap");
+  const usersHint = $("#users-hint");
+  if (usersHint && isOperator()) {
+    usersHint.textContent =
+      "Оператор: можно копировать ссылку и отправлять приглашение. Полная настройка 2FA — у администратора.";
+  }
+}
 
 function confirmDialog({ title, message, confirmLabel = "Подтвердить", danger = false }) {
   return new Promise((resolve) => {
@@ -61,7 +98,13 @@ async function api(path, opts = {}) {
 function showApp() {
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
-  loadDash();
+  applyRoleNav();
+  const first =
+    (isAdmin() && "dash") ||
+    (isOperator() && "users") ||
+    (isAuditor() && "audit") ||
+    "dash";
+  switchTab(first);
 }
 
 $("#login-form").addEventListener("submit", async (e) => {
@@ -74,8 +117,14 @@ $("#login-form").addEventListener("submit", async (e) => {
       body: JSON.stringify({ username: fd.get("username"), password: fd.get("password") }),
     });
     token = out.token;
+    meRole = out.role || "admin";
+    meUser = out.username;
+    meAuthSource = out.auth_source || "local";
     localStorage.setItem("mfa_token", token);
-    $("#who").textContent = out.username;
+    localStorage.setItem("mfa_role", meRole);
+    localStorage.setItem("mfa_user", meUser);
+    localStorage.setItem("mfa_auth_source", meAuthSource);
+    $("#who").textContent = `${out.username} · ${out.role_label || meRole}`;
     showApp();
   } catch (err) {
     const status = err.status || 0;
@@ -92,7 +141,12 @@ $("#login-form").addEventListener("submit", async (e) => {
 
 $("#logout").addEventListener("click", () => {
   token = "";
+  meRole = "";
+  meUser = "";
   localStorage.removeItem("mfa_token");
+  localStorage.removeItem("mfa_role");
+  localStorage.removeItem("mfa_user");
+  localStorage.removeItem("mfa_auth_source");
   location.reload();
 });
 
@@ -148,6 +202,7 @@ async function loadTokens() {
   if (status) q.set("status", status);
   const rows = await api("/api/tokens?" + q.toString());
   $("#token-empty").classList.toggle("hidden", rows.length > 0);
+  const canManage = isAdmin();
   $("#token-rows").innerHTML = rows
     .map(
       (t) => `<tr>
@@ -158,12 +213,17 @@ async function loadTokens() {
       <td>${fmtTs(t.enrolled_at)}</td>
       <td>${fmtTs(t.last_used_at)}</td>
       <td class="row-actions">
-        ${t.status !== "disabled" ? `<button type="button" class="ghost btn-sm token-disable" data-serial="${esc(t.serial)}">Disable</button>` : `<button type="button" class="ghost btn-sm token-enable" data-serial="${esc(t.serial)}">Enable</button>`}
-        <button type="button" class="ghost btn-sm danger token-revoke" data-serial="${esc(t.serial)}">Revoke</button>
+        ${
+          canManage
+            ? `${t.status !== "disabled" ? `<button type="button" class="ghost btn-sm token-disable" data-serial="${esc(t.serial)}">Disable</button>` : `<button type="button" class="ghost btn-sm token-enable" data-serial="${esc(t.serial)}">Enable</button>`}
+        <button type="button" class="ghost btn-sm danger token-revoke" data-serial="${esc(t.serial)}">Revoke</button>`
+            : `<span class="muted">—</span>`
+        }
       </td>
     </tr>`
     )
     .join("");
+  if (!canManage) return;
   $("#token-rows").querySelectorAll(".token-disable").forEach((b) =>
     b.addEventListener("click", () => patchToken(b.dataset.serial, { active: false }))
   );
@@ -197,7 +257,7 @@ async function loadDash() {
   $("#stats").innerHTML = `
     <div class="card"><b>${s.users}</b>пользователи</div>
     <div class="card"><b>${s.enrolled}</b>с 2FA</div>
-    <div class="card"><b>${s.ldap_mock ? "mock" : "AD"}</b>LDAP</div>`;
+    <div class="card"><b>${s.ldap_configured ? "AD" : "нет DC"}</b>LDAP</div>`;
 }
 
 function chk(v) {
@@ -337,6 +397,8 @@ function switchSettingsTab(tab) {
   document.querySelectorAll(".settings-pane").forEach((p) => {
     p.classList.toggle("hidden", p.dataset.settingsPane !== tab);
   });
+  const save = $("#settings-save-actions");
+  if (save) save.classList.toggle("hidden", tab === "access");
 }
 
 document.querySelectorAll(".settings-tab").forEach((btn) => {
@@ -345,8 +407,6 @@ document.querySelectorAll(".settings-tab").forEach((btn) => {
 
 function collectLdapTestBody(form) {
   const body = {
-    ldap_mock: form.elements.ldap_mock?.checked ?? false,
-    ldap_mock_password: form.elements.ldap_mock_password?.value ?? "",
     ldap_use_ssl: form.elements.ldap_use_ssl?.checked ?? false,
     ldap_base_dn: form.elements.ldap_base_dn?.value ?? "",
     ldap_user_attr: form.elements.ldap_user_attr?.value ?? "",
@@ -576,8 +636,6 @@ async function loadSettings() {
       <fieldset class="settings-section">
         <legend>LDAP</legend>
         <p class="field-hint">Импорт пользователей из AD — автоматически каждые 30 минут (Celery Beat). Кнопка «Загрузить из LDAP» на вкладке «Пользователи» — в любой момент.</p>
-        ${checkField("Mock LDAP (lab)", "ldap_mock", s.ldap.mock, "Включено — пароль берётся из mock password, AD не нужен.")}
-        ${field("Пароль mock", "ldap_mock_password", s.ldap.mock_password || "", "password", "Пароль для пользователей в режиме mock.")}
         <div class="field">
           <span class="field-group-label">Контроллеры домена (DC)</span>
           <div id="ldap-dc-list" class="dc-list">${dcHtml}</div>
@@ -692,7 +750,50 @@ async function loadSettings() {
       </fieldset>
     </div>
 
-    <div class="form-actions">
+    <div class="settings-pane hidden" data-settings-pane="access">
+      <fieldset class="settings-section">
+        <legend>Учётные записи панели</legend>
+        <p class="field-hint">Кто уже входил (AD) или создан локально. Отключить — запрет входа без удаления.</p>
+        <div id="panel-users-list" class="panel-users-wrap">Загрузка…</div>
+      </fieldset>
+
+      <fieldset class="settings-section">
+        <legend>Группы AD</legend>
+        <p class="field-hint">Локальный <b>администратор</b> — логин/пароль панели. <b>Оператор</b> и <b>аудитор</b> входят логином/паролем AD, если состоят в группах ниже (вложенные учитываются). Обе группы → роль оператор.</p>
+        ${field("Группа AD операторов", "panel_operator_group", s.app.operator_group || "", "text", "DN (CN=…) или короткое имя. Приглашения + просмотр токенов.")}
+        ${field("Группа AD аудиторов", "panel_auditor_group", s.app.auditor_group || "", "text", "DN или короткое имя. Токены + аудит.")}
+        <div class="form-actions access-inline-actions">
+          <button type="button" id="panel-groups-save" class="btn-sm">Сохранить группы AD</button>
+          <span id="panel-groups-out" class="muted"></span>
+        </div>
+      </fieldset>
+
+      <fieldset class="settings-section">
+        <legend>Локальная учётка (break-glass)</legend>
+        <p class="field-hint">Дополнительный локальный вход без AD. Для оператора/аудитора предпочтительнее группы AD.</p>
+        <div class="field">
+          <label for="pu-username">Логин</label>
+          <input id="pu-username" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="pu-password">Пароль</label>
+          <input id="pu-password" type="password" autocomplete="new-password" />
+          <p class="field-hint">Минимум 8 символов.</p>
+        </div>
+        <div class="field">
+          <label for="pu-role">Роль</label>
+          <select id="pu-role">
+            <option value="admin">Администратор</option>
+            <option value="operator">Оператор</option>
+            <option value="auditor">Аудитор</option>
+          </select>
+        </div>
+        <button type="button" id="pu-create" class="btn-sm">Создать локально</button>
+        <p id="pu-err" class="err"></p>
+      </fieldset>
+    </div>
+
+    <div class="form-actions" id="settings-save-actions">
       <button type="submit">Сохранить настройки</button>
     </div>`;
 
@@ -724,7 +825,120 @@ async function loadSettings() {
 
   wireDcList($("#settings-form"));
   wireTlsUploads();
+  wirePanelUsers();
   switchSettingsTab(activeSettingsTab);
+}
+
+async function wirePanelUsers() {
+  const listEl = $("#panel-users-list");
+  if (!listEl) return;
+  $("#panel-groups-save")?.addEventListener("click", async () => {
+    const out = $("#panel-groups-out");
+    try {
+      await api("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          panel_operator_group: $("#panel_operator_group")?.value ?? "",
+          panel_auditor_group: $("#panel_auditor_group")?.value ?? "",
+        }),
+      });
+      if (out) out.textContent = "Сохранено";
+      showSettingsFlash("Группы доступа сохранены");
+    } catch (e) {
+      if (out) out.textContent = String(e.message || e);
+    }
+  });
+  const srcLabel = (s) => (s === "ldap" ? "AD" : "локальный");
+  const render = async () => {
+    try {
+      const rows = await api("/api/panel-users");
+      if (!rows.length) {
+        listEl.innerHTML = `<p class="muted">Пока никого нет — войдите локальным admin или задайте группы AD.</p>`;
+        return;
+      }
+      listEl.innerHTML = `
+        <div class="panel-users-scroll">
+        <table class="data-table panel-users-table">
+          <colgroup>
+            <col class="col-login" />
+            <col class="col-role" />
+            <col class="col-src" />
+            <col class="col-status" />
+            <col class="col-actions" />
+          </colgroup>
+          <thead><tr>
+            <th>Логин</th>
+            <th>Роль</th>
+            <th>Источник</th>
+            <th>Статус</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${rows
+              .map(
+                (u) => `<tr>
+              <td>${esc(u.username)}</td>
+              <td>${esc(u.role_label || u.role)}</td>
+              <td>${esc(srcLabel(u.auth_source))}</td>
+              <td>${u.is_active ? "активен" : "отключён"}</td>
+              <td class="row-actions">
+                <button type="button" class="ghost btn-sm pu-toggle" data-id="${u.id}" data-active="${u.is_active ? "1" : "0"}">${u.is_active ? "Отключить" : "Включить"}</button>
+                ${
+                  u.auth_source !== "ldap"
+                    ? `<button type="button" class="ghost btn-sm pu-reset" data-id="${u.id}">Сбросить пароль</button>`
+                    : `<span class="muted">пароль в AD</span>`
+                }
+              </td>
+            </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+        </div>`;
+      listEl.querySelectorAll(".pu-toggle").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const active = b.dataset.active !== "1";
+          await api("/api/panel-users/" + b.dataset.id, {
+            method: "PATCH",
+            body: JSON.stringify({ is_active: active }),
+          });
+          await render();
+        })
+      );
+      listEl.querySelectorAll(".pu-reset").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const pwd = prompt("Новый пароль (мин. 8 символов):");
+          if (!pwd || pwd.length < 8) return;
+          await api("/api/panel-users/" + b.dataset.id, {
+            method: "PATCH",
+            body: JSON.stringify({ password: pwd }),
+          });
+          alert("Пароль обновлён");
+        })
+      );
+    } catch (e) {
+      listEl.textContent = String(e.message || e);
+    }
+  };
+  await render();
+  $("#pu-create")?.addEventListener("click", async () => {
+    $("#pu-err").textContent = "";
+    try {
+      await api("/api/panel-users", {
+        method: "POST",
+        body: JSON.stringify({
+          username: $("#pu-username").value.trim(),
+          password: $("#pu-password").value,
+          role: $("#pu-role").value,
+        }),
+      });
+      $("#pu-username").value = "";
+      $("#pu-password").value = "";
+      await render();
+    } catch (e) {
+      $("#pu-err").textContent = String(e.message || e);
+    }
+  });
 }
 
 async function loadUsers() {
@@ -748,8 +962,12 @@ async function loadUsers() {
       <td>${esc(userMethodLabel(u.otp_method))}</td>
       <td class="user-channels muted">${userChannelsCell(u)}</td>
       <td class="row-actions">
-        <button type="button" data-id="${u.id}" class="ghost btn-sm edit-user">Настроить 2FA</button>
-        <button type="button" data-id="${u.id}" class="ghost btn-sm issue-code">Выпустить код</button>
+        ${
+          isAdmin()
+            ? `<button type="button" data-id="${u.id}" class="ghost btn-sm edit-user">Настроить 2FA</button>
+        <button type="button" data-id="${u.id}" class="ghost btn-sm issue-code">Выпустить код</button>`
+            : ""
+        }
         <button type="button" data-id="${u.id}" class="ghost btn-sm copy-invite">Копировать ссылку</button>
         <button type="button" data-id="${u.id}" class="btn-sm send-invite" ${u.ldap_email ? "" : "disabled title=\"Нет email\""}>Отправить приглашение</button>
       </td>
@@ -757,23 +975,25 @@ async function loadUsers() {
     )
     .join("");
   const byId = Object.fromEntries(rows.map((u) => [String(u.id), u]));
-  $("#user-rows").querySelectorAll(".edit-user").forEach((b) =>
-    b.addEventListener("click", () => openUserEdit(byId[b.dataset.id]))
-  );
-  $("#user-rows").querySelectorAll(".issue-code").forEach((b) =>
-    b.addEventListener("click", async () => {
-      const out = await api("/api/users/" + b.dataset.id + "/totp/issue", { method: "POST", body: "{}" });
-      $("#issue-modal").classList.remove("hidden");
-      $("#issue-modal").innerHTML = `
+  if (isAdmin()) {
+    $("#user-rows").querySelectorAll(".edit-user").forEach((b) =>
+      b.addEventListener("click", () => openUserEdit(byId[b.dataset.id]))
+    );
+    $("#user-rows").querySelectorAll(".issue-code").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const out = await api("/api/users/" + b.dataset.id + "/totp/issue", { method: "POST", body: "{}" });
+        $("#issue-modal").classList.remove("hidden");
+        $("#issue-modal").innerHTML = `
         <h3 class="section-heading">TOTP для пересылки пользователю</h3>
         <p class="muted">Confirm не требуется — передайте QR/секрет вручную. Токен в статусе pending до confirm пользователем или RADIUS.</p>
         <img class="qr" src="data:image/png;base64,${out.qr_png_base64}" alt="QR" />
         <p><code>${esc(out.secret)}</code></p>
         <button type="button" class="ghost" id="close-issue">Закрыть</button>`;
-      $("#close-issue").addEventListener("click", () => $("#issue-modal").classList.add("hidden"));
-      loadTokens();
-    })
-  );
+        $("#close-issue").addEventListener("click", () => $("#issue-modal").classList.add("hidden"));
+        loadTokens();
+      })
+    );
+  }
   $("#user-rows").querySelectorAll(".copy-invite").forEach((b) =>
     b.addEventListener("click", async () => {
       try {
@@ -992,8 +1212,6 @@ const AUDIT_REASON_LABELS = {
 };
 
 const AUDIT_SETTINGS_LABELS = {
-  ldap_mock: "Mock LDAP",
-  ldap_mock_password: "Пароль mock",
   ldap_use_ssl: "LDAPS",
   ldap_base_dn: "Base DN",
   ldap_user_attr: "Атрибут логина",
@@ -1067,8 +1285,39 @@ async function loadAudit() {
 if (token) {
   api("/api/me")
     .then((m) => {
-      $("#who").textContent = m.username;
+      meUser = m.username;
+      meRole = m.role || "admin";
+      meAuthSource = m.auth_source || "local";
+      localStorage.setItem("mfa_role", meRole);
+      localStorage.setItem("mfa_user", meUser);
+      localStorage.setItem("mfa_auth_source", meAuthSource);
+      $("#who").textContent = `${m.username} · ${m.role_label || meRole}`;
       showApp();
     })
     .catch(() => {});
 }
+
+$("#change-password-btn")?.addEventListener("click", () => {
+  $("#pwd-overlay").classList.remove("hidden");
+  $("#pwd-err").textContent = "";
+  $("#pwd-form").reset();
+});
+$("#pwd-cancel")?.addEventListener("click", () => $("#pwd-overlay").classList.add("hidden"));
+$("#pwd-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#pwd-err").textContent = "";
+  const fd = new FormData(e.target);
+  try {
+    await api("/api/me/password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: fd.get("current_password"),
+        new_password: fd.get("new_password"),
+      }),
+    });
+    $("#pwd-overlay").classList.add("hidden");
+    alert("Пароль изменён");
+  } catch (err) {
+    $("#pwd-err").textContent = String(err.message || err);
+  }
+});

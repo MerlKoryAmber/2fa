@@ -19,8 +19,6 @@ os.environ.setdefault("JWT_SECRET", "test-jwt")
 os.environ.setdefault("INTERNAL_API_TOKEN", "test-internal")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
-os.environ.setdefault("LDAP_MOCK", "true")
-os.environ.setdefault("LDAP_MOCK_PASSWORD", "demo")
 os.environ.setdefault("SEED_ON_STARTUP", "false")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "changeme")
@@ -74,3 +72,9 @@ def seeded_user(db_session):
     db_session.commit()
     db_session.refresh(user)
     return user
+
+
+@pytest.fixture()
+def ldap_ok(monkeypatch):
+    monkeypatch.setattr("app.radius_flow.authenticate_ldap", lambda *a, **k: True)
+    monkeypatch.setattr("app.ldap_auth.authenticate_ldap", lambda *a, **k: True)

@@ -12,7 +12,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 - **Web-управление:** админка; **настройки LDAP, RADIUS, SMTP, ExpressMS, Telegram — в панели**, bootstrap через `.env`.
 - **Интеграция с RADIUS:** схема MFA через `Access-Challenge` + `State` (см. §1). **Не привязка к VMware UAG** — любой клиент/NAS с тем же flow.
 - **Enrollment:** админ выпускает TOTP вручную, **копирует ссылку** или шлёт **email-приглашение**; пользователь проходит **LDAP auth** на `/enroll/{token}`, затем QR/TOTP.
-- **Деплой:** Podman Compose на lab; **агент сам rebuild/deploy/migrate** после изменений (правило `.cursor/rules/deploy-lab.mdc`). `install.sh` — **позже**, по команде Merl.
+- **Деплой:** Podman Compose на lab; **агент сам rebuild/deploy/migrate** после изменений (правило `.cursor/rules/deploy-lab.mdc`). **`scripts/install.sh` / `update.sh` / `uninstall.sh`** — установка на Linux.
 - **Масштаб:** 100–200 пользователей.
 
 ---
@@ -58,7 +58,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 
 | Модуль | Статус |
 |--------|--------|
-| LDAP auth + mock + **multi-DC failover** | ✅ |
+| LDAP auth + **только реальный AD** (mock удалён) | ✅ |
 | **LDAP sync** (ручной + **авто beat 30 мин**, email, **displayName**) | ✅ |
 | **LDAP sync filters** (OU, группа AD) | ✅ |
 | Policy (require_2fa, factors, TTL, **enroll_invite_ttl**) | ✅ |
@@ -69,8 +69,9 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 | OTP / TOTP / challenge store | ✅ |
 | **Tokens registry** (serial, status, revoke) | ✅ |
 | Audit + **русские подписи событий и meta** | ✅ |
-| **Settings** (LDAP, RADIUS, SMTP, ExpressMS, Telegram, **TLS/CA**) | ✅ |
+| **Settings** (LDAP, RADIUS, SMTP, ExpressMS, Telegram, **TLS/CA**, **Доступ**) | ✅ |
 | **TLS upload** (cert+key, root CA → volume, nginx reload) | ✅ |
+| **RBAC панели** (admin / operator / auditor) + смена пароля | ✅ |
 | Policy engine по scope/группе AD | ❌ backlog |
 
 ### UI (реализовано)
@@ -158,6 +159,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 | 003 | token_serial, token_active, last_used_at |
 | 004 | enrollment_invites, ldap_email, enroll_invite_ttl_seconds |
 | **005** | **users.display_name** (из AD) |
+| **006** | **admins.role, is_active, updated_at** (RBAC панели) |
 
 ---
 
@@ -175,13 +177,23 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 - Секреты: `APP_ENCRYPTION_KEY`, JWT, internal token, Postgres.
 - LDAP mock, demo user, RADIUS secret, SMTP dry-run, `PUBLIC_BASE_URL`.
 
-### Установка в чистое окружение (backlog)
+### Установка в чистое окружение
 
 ```bash
-git clone <repo> && cd 2fa
-cp .env.example .env
-./scripts/install.sh   # НЕ РЕАЛИЗОВАНО — последний шаг перед prod
+# вариант A: уже есть клон
+cd /path/to/2fa && sudo ./scripts/install.sh
+
+# вариант B: clone в каталог
+sudo ./scripts/install.sh --dir /opt/own2fa \
+  --repo https://github.com/MerlKoryAmber/2fa.git
+
+sudo ./scripts/update.sh              # pull + rebuild
+sudo ./scripts/uninstall.sh           # down
+sudo ./scripts/uninstall.sh --purge   # + volumes
 ```
+
+Пакеты: apt/dnf/yum/zypper/pacman/apk → podman + podman-compose (или Docker Compose).  
+`.env` из `.env.example` + сгенерированные секреты; учётки: `.install-credentials.txt`.
 
 ### После установки — настройка в панели
 
@@ -243,7 +255,7 @@ cp .env.example .env
 | 6c | **Enroll LDAP auth, audit RU, displayName, filters** | **✅** |
 | 7 | Hardening (Alembic, rate-limit, HTTPS upload, health, beat) | **✅** |
 | 8 | Discovery на реальном NAS | **❌** ждёт окружение |
-| 9 | **`install.sh` + push GitHub** | **❌** по команде Merl |
+| 9 | **install / update / uninstall + GitHub** | **✅** скрипты; приёмка на чистой ОС — по Merl |
 | 10 | Policy engine по группе/scope AD | **❌** backlog |
 
 ---
@@ -315,13 +327,14 @@ cp .env.example .env
 - [x] `make verify` (~42–45 тест; стабильный fail: `test_normalize_bind_user_domain_backslash` — не наш функционал)
 - [x] Alembic до **005**
 - [ ] UI browser acceptance (§4 CLAUDE.md)
-- [ ] `install.sh`
+- [x] `scripts/install.sh` / `update.sh` / `uninstall.sh`
+- [ ] приёмка install на чистой ОС
 
 ---
 
 ## 9) Backlog (явный хвост)
 
-1. **`install.sh`** — установка с GitHub в чистое окружение (**последний**, по Merl).
+1. **Приёмка install** на чистой Debian/RHEL (не lab) — по Merl.
 2. **Real AD prod** — RADIUS с живым NAS, не только lab.
 3. **Telegram bot `/start`** — автоматический chat_id.
 4. **Policy engine** — метод 2FA по группе/OU AD.

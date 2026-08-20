@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.audit import audit
 from app.db import get_db
 from app.ldap_auth import run_ldap_test
-from app.routers.auth import current_admin
+from app.routers.auth import require_roles
+from app.rbac import ROLE_ADMIN
 from app.settings_service import (
     apply_ldap_servers,
     apply_settings_patch,
@@ -16,7 +17,7 @@ from app.settings_service import (
 )
 from app.tls_service import save_root_ca, save_web_tls
 
-router = APIRouter(prefix="/api/settings", tags=["settings"], dependencies=[Depends(current_admin)])
+router = APIRouter(prefix="/api/settings", tags=["settings"], dependencies=[Depends(require_roles(ROLE_ADMIN))])
 
 
 class LdapServerIn(BaseModel):
@@ -25,8 +26,6 @@ class LdapServerIn(BaseModel):
 
 
 class SettingsPatch(BaseModel):
-    ldap_mock: bool | None = None
-    ldap_mock_password: str | None = None
     ldap_servers: list[LdapServerIn] | None = None
     ldap_use_ssl: bool | None = None
     ldap_base_dn: str | None = None
@@ -53,13 +52,13 @@ class SettingsPatch(BaseModel):
     smtp_password: str | None = None
     smtp_invite_subject: str | None = None
     smtp_invite_body_template: str | None = None
+    panel_operator_group: str | None = None
+    panel_auditor_group: str | None = None
 
 
 class TestLdapIn(BaseModel):
     username: str | None = None
     password: str | None = None
-    ldap_mock: bool | None = None
-    ldap_mock_password: str | None = None
     ldap_servers: list[LdapServerIn] | None = None
     ldap_use_ssl: bool | None = None
     ldap_base_dn: str | None = None
@@ -84,7 +83,7 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.patch("")
-def patch_settings(body: SettingsPatch, db: Session = Depends(get_db), admin=Depends(current_admin)):
+def patch_settings(body: SettingsPatch, db: Session = Depends(get_db), admin=Depends(require_roles(ROLE_ADMIN))):
     data = body.model_dump(exclude_unset=True)
     servers = data.pop("ldap_servers", None)
     if "radius_port" in data and data["radius_port"] is not None:
@@ -114,7 +113,7 @@ def radius_preview(db: Session = Depends(get_db)):
 
 
 @router.post("/tls/web")
-def upload_web_tls(body: TlsWebIn, db: Session = Depends(get_db), admin=Depends(current_admin)):
+def upload_web_tls(body: TlsWebIn, db: Session = Depends(get_db), admin=Depends(require_roles(ROLE_ADMIN))):
     try:
         save_web_tls(db, body.cert_pem, body.key_pem)
     except ValueError as exc:
@@ -124,7 +123,7 @@ def upload_web_tls(body: TlsWebIn, db: Session = Depends(get_db), admin=Depends(
 
 
 @router.post("/tls/root-ca")
-def upload_root_ca(body: TlsRootCaIn, db: Session = Depends(get_db), admin=Depends(current_admin)):
+def upload_root_ca(body: TlsRootCaIn, db: Session = Depends(get_db), admin=Depends(require_roles(ROLE_ADMIN))):
     try:
         save_root_ca(db, body.ca_pem)
     except ValueError as exc:

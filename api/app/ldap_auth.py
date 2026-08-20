@@ -21,8 +21,6 @@ log = logging.getLogger(__name__)
 def authenticate_ldap(username: str, password: str, cfg: LdapConfig) -> bool:
     if not username or not password:
         return False
-    if cfg.mock:
-        return password == cfg.mock_password
     return _bind_ad(username, password, cfg)
 
 
@@ -117,22 +115,6 @@ def run_ldap_test(
 ) -> dict:
     log: list[str] = []
 
-    if cfg.mock:
-        log.append("Режим: mock LDAP (lab)")
-        if username and password:
-            log.append(f"Проверка пользователя «{username}»…")
-            ok = authenticate_ldap(username, password, cfg)
-            log.append("✓ Пароль принят" if ok else "✗ Неверный пароль или пользователь")
-            return {
-                "ok": ok,
-                "mode": "mock",
-                "message": "auth ok" if ok else "auth failed",
-                "log": log,
-            }
-        log.append("Service bind в mock не требуется")
-        log.append("✓ Mock LDAP доступен")
-        return {"ok": True, "mode": "mock", "message": "mock mode", "log": log}
-
     urls = server_urls(cfg.servers, cfg.use_ssl)
     log.append(f"Режим: AD/LDAP, SSL={'да' if cfg.use_ssl else 'нет'}")
     log.append(f"Контроллеры: {', '.join(urls) if urls else '(не заданы)'}")
@@ -224,23 +206,6 @@ def _escape(value: str) -> str:
     )
 
 
-def _parse_mock_users(raw: str) -> list[dict]:
-    out: list[dict] = []
-    for chunk in (raw or "").split(","):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-        if ":" in chunk:
-            parts = [p.strip() for p in chunk.split(":")]
-            user = parts[0]
-            mail = parts[1] if len(parts) > 1 and parts[1] else None
-            display_name = parts[2] if len(parts) > 2 and parts[2] else None
-            out.append({"username": user, "email": mail or None, "display_name": display_name})
-        else:
-            out.append({"username": chunk, "email": None, "display_name": None})
-    return out
-
-
 def _resolve_group_dn(conn, group_spec: str, base_dn: str) -> str | None:
     spec = (group_spec or "").strip()
     if not spec:
@@ -256,9 +221,7 @@ def _resolve_group_dn(conn, group_spec: str, base_dn: str) -> str | None:
     return None
 
 
-def list_ldap_users(cfg: LdapConfig, mock_users_csv: str = "", limit: int = 500) -> tuple[list[dict], str | None]:
-    if cfg.mock:
-        return _parse_mock_users(mock_users_csv), None
+def list_ldap_users(cfg: LdapConfig, limit: int = 500) -> tuple[list[dict], str | None]:
     if not cfg.servers or not cfg.bind_user or not cfg.base_dn:
         return [], "нужны DC, bind user и base DN"
     search_base = (cfg.sync_ou or cfg.base_dn).strip()

@@ -1,4 +1,5 @@
 .env
+.install-credentials.txt
 __pycache__/
 *.pyc
 .venv/

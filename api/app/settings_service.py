@@ -26,8 +26,6 @@ SECRET_KEYS = frozenset(
 )
 
 ENV_DEFAULTS: dict[str, str] = {
-    "ldap.mock": lambda: str(env.ldap_mock).lower(),
-    "ldap.mock_password": lambda: env.ldap_mock_password,
     "ldap.servers": lambda: env.ldap_servers,
     "ldap.url": lambda: env.ldap_url,
     "ldap.use_ssl": lambda: str(env.ldap_use_ssl).lower(),
@@ -37,6 +35,8 @@ ENV_DEFAULTS: dict[str, str] = {
     "ldap.bind_password": lambda: env.ldap_bind_password,
     "ldap.sync_ou": lambda: env.ldap_sync_ou,
     "ldap.sync_group": lambda: env.ldap_sync_group,
+    "panel.operator_group": lambda: env.panel_operator_group,
+    "panel.auditor_group": lambda: env.panel_auditor_group,
     "radius.shared_secret": lambda: env.radius_secret,
     "radius.port": lambda: "1812",
     "radius.allowed_clients": lambda: env.radius_allowed_clients,
@@ -55,7 +55,6 @@ ENV_DEFAULTS: dict[str, str] = {
     "smtp.password": lambda: env.smtp_password,
     "smtp.invite_subject": lambda: env.smtp_invite_subject,
     "smtp.invite_body_template": lambda: env.smtp_invite_body_template,
-    "ldap.mock_users": lambda: env.ldap_mock_users,
 }
 
 
@@ -102,8 +101,6 @@ def is_secret_set(db: Session, key: str) -> bool:
 
 @dataclass
 class LdapConfig:
-    mock: bool
-    mock_password: str
     servers: list[LdapServer]
     use_ssl: bool
     base_dn: str
@@ -177,8 +174,6 @@ def smtp_config(db: Session) -> SmtpConfig:
 def ldap_config(db: Session) -> LdapConfig:
     use_ssl = _as_bool(get_raw(db, "ldap.use_ssl"))
     return LdapConfig(
-        mock=_as_bool(get_raw(db, "ldap.mock")),
-        mock_password=get_raw(db, "ldap.mock_password"),
         servers=_load_ldap_servers(db, use_ssl),
         use_ssl=use_ssl,
         base_dn=get_raw(db, "ldap.base_dn"),
@@ -192,10 +187,6 @@ def ldap_config(db: Session) -> LdapConfig:
 
 def ldap_config_for_test(db: Session, overrides: dict) -> LdapConfig:
     cfg = ldap_config(db)
-    if overrides.get("ldap_mock") is not None:
-        cfg = replace(cfg, mock=bool(overrides["ldap_mock"]))
-    if overrides.get("ldap_mock_password") is not None:
-        cfg = replace(cfg, mock_password=str(overrides["ldap_mock_password"]))
     if overrides.get("ldap_use_ssl") is not None:
         cfg = replace(cfg, use_ssl=bool(overrides["ldap_use_ssl"]))
     if overrides.get("ldap_base_dn") is not None:
@@ -207,7 +198,6 @@ def ldap_config_for_test(db: Session, overrides: dict) -> LdapConfig:
     if overrides.get("ldap_bind_password"):
         cfg = replace(cfg, bind_password=str(overrides["ldap_bind_password"]))
     elif not overrides.get("ldap_bind_use_stored"):
-        # Явный пустой пароль из формы — не подставлять сохранённый.
         if "ldap_bind_password" in overrides and overrides["ldap_bind_password"] == "":
             cfg = replace(cfg, bind_password="")
     servers_in = overrides.get("ldap_servers")
@@ -251,8 +241,6 @@ def telegram_config(db: Session) -> TelegramConfig:
 def settings_public(db: Session) -> dict:
     return {
         "ldap": {
-            "mock": _as_bool(get_raw(db, "ldap.mock")),
-            "mock_password": get_raw(db, "ldap.mock_password"),
             "servers": [{"host": s.host, "port": s.port} for s in _load_ldap_servers(db, _as_bool(get_raw(db, "ldap.use_ssl")))],
             "use_ssl": _as_bool(get_raw(db, "ldap.use_ssl")),
             "base_dn": get_raw(db, "ldap.base_dn"),
@@ -289,6 +277,8 @@ def settings_public(db: Session) -> dict:
         },
         "app": {
             "public_base_url": get_raw(db, "app.public_base_url"),
+            "operator_group": get_raw(db, "panel.operator_group"),
+            "auditor_group": get_raw(db, "panel.auditor_group"),
         },
     }
 
@@ -314,8 +304,6 @@ def apply_ldap_servers(db: Session, servers_in: list, use_ssl: bool | None = Non
 
 def apply_settings_patch(db: Session, body: dict) -> None:
     mapping = {
-        "ldap_mock": ("ldap.mock", lambda v: str(v).lower()),
-        "ldap_mock_password": ("ldap.mock_password", str),
         "ldap_use_ssl": ("ldap.use_ssl", lambda v: str(v).lower()),
         "ldap_base_dn": ("ldap.base_dn", str),
         "ldap_user_attr": ("ldap.user_attr", str),
@@ -341,6 +329,8 @@ def apply_settings_patch(db: Session, body: dict) -> None:
         "smtp_password": ("smtp.password", str),
         "smtp_invite_subject": ("smtp.invite_subject", str),
         "smtp_invite_body_template": ("smtp.invite_body_template", str),
+        "panel_operator_group": ("panel.operator_group", str),
+        "panel_auditor_group": ("panel.auditor_group", str),
     }
     for field, (key, conv) in mapping.items():
         if field not in body:

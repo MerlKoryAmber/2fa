@@ -86,6 +86,7 @@ def enroll_client(db_session, fake_redis, monkeypatch):
             pass
 
     monkeypatch.setattr("app.main.ping_redis", lambda: True)
+    monkeypatch.setattr("app.routers.public_enroll.authenticate_ldap", lambda *a, **k: True)
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()

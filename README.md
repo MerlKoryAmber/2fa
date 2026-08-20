@@ -19,16 +19,41 @@
 
 На хосте: **Podman** + `podman-compose` (не Docker Engine). Lab: `/root/2fa`.
 
-## Быстрый старт
+## Установка на чистый Linux
+
+Скрипты ставят зависимости хоста (curl, git, openssl, python3, **Podman**, **podman-compose**; при отсутствии podman — Docker Compose v2), создают `.env` с секретами, поднимают стек.
+
+Поддержка пакетных менеджеров: **apt** (Debian/Ubuntu), **dnf/yum** (RHEL/CentOS/Rocky/Alma/Fedora), **zypper**, **pacman**, **apk**.
+
+```bash
+# уже есть клон репозитория
+cd /path/to/2fa
+sudo ./scripts/install.sh
+
+# или clone в /opt/own2fa с GitHub
+sudo ./scripts/install.sh --dir /opt/own2fa
+
+# пакеты уже стоят — только .env + compose
+sudo ./scripts/install.sh --skip-pkgs
+```
+
+| Скрипт | Назначение |
+|--------|------------|
+| `scripts/install.sh` | пакеты + `.env` + `compose up --build` + health |
+| `scripts/update.sh` | `git pull --ff-only` + полный rebuild + alembic + health |
+| `scripts/uninstall.sh` | `compose down`; `--purge` удаляет volumes; `--purge --remove-dir` — и каталог |
+
+Сгенерированные пароли (если `.env` создавался впервые): `.install-credentials.txt` (в `.gitignore`).
+
+### Lab / уже развёрнуто
 
 ```bash
 cd /root/2fa
 cp .env.example .env   # сменить секреты перед любой не-lab сетью
 make up                # podman-compose up --build -d
-# миграции на старте api; вручную:
-podman exec 2fa_api_1 alembic upgrade head   # head = 005
+podman exec 2fa_api_1 alembic upgrade head   # head = 007
 curl -sk https://127.0.0.1/health
-make verify            # тесты в образе api
+make verify
 ```
 
 Админка: `https://<IP>/` (self-signed по умолчанию; браузер предупредит).  
@@ -38,9 +63,8 @@ HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`.
 
 | Что | Значение |
 |-----|----------|
-| Admin | `admin` / `changeme` |
-| Demo LDAP mock | `demo` / `demo` |
-| Demo TOTP | `JBSWY3DPEHPK3PXP` |
+| Admin | `admin` / `changeme` (смените; в панели — «Сменить пароль») |
+| Demo seed | user `demo` + TOTP `JBSWY3DPEHPK3PXP` (нужен тот же user в AD для RADIUS) |
 | RADIUS secret | `testing123` (из панели / `.env`) |
 
 ## Админка (что умеет)
@@ -82,8 +106,22 @@ Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/rad
 - несколько DC (host+port), failover;
 - bind: `DOMAIN\user`, UPN или короткий логин;
 - Base DN, SSL/LDAPS;
-- **OU** и/или **группа AD** для sync;
-- mock для lab: `LDAP_MOCK=true`.
+- **OU** и/или **группа AD** для sync.
+
+Mock LDAP **удалён** — только реальный AD.
+
+## Доступ к панели (роли)
+
+Вкладка **Настройки → Доступ**.
+
+| Роль | Как входит | Права |
+|------|------------|--------|
+| **Администратор** | локальный логин/пароль панели | полный доступ |
+| **Оператор** | **логин/пароль AD**, группа операторов | приглашения + просмотр токенов |
+| **Аудитор** | **логин/пароль AD**, группа аудиторов | токены + аудит |
+
+Группы AD задаются в «Доступ» (DN или короткое имя; вложенные учитываются). Обе группы → роль оператор.  
+Смена пароля в сайдбаре — только для локальных учёток.
 
 ## ExpressMS / Telegram / SMTP
 
@@ -108,7 +146,9 @@ Telegram chat_id пока вручную (enroll / модал пользоват
 |-----|------------|
 | 001–003 | схема, settings, telegram, token fields |
 | 004 | enrollment_invites, ldap_email, invite TTL |
-| **005** | `users.display_name` |
+| 005 | `users.display_name` |
+| 006 | роли админов панели (`admin` / `operator` / `auditor`) |
+| **007** | `admins.auth_source` (local / ad), группы AD для операторов/аудиторов |
 
 ## Деплой после правок кода
 
@@ -134,11 +174,9 @@ curl -sk https://127.0.0.1/health
 
 ## Backlog (кратко)
 
-- `install.sh` (установка с GitHub) — по команде
 - Discovery на реальном NAS
 - Telegram bot `/start`
 - Policy engine по группе/OU AD
-- RBAC админов через AD
 
 LinOTP-миграция (отложена): [`LINOTP_MIGRATION_TODO.md`](LINOTP_MIGRATION_TODO.md).
 

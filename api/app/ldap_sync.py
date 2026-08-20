@@ -3,13 +3,12 @@ from sqlalchemy.orm import Session
 from app.audit import audit
 from app.ldap_auth import list_ldap_users
 from app.models import User
-from app.settings_service import get_raw, ldap_config
+from app.settings_service import ldap_config
 
 
 def run_ldap_sync(db: Session, *, by: str = "system") -> dict:
     cfg = ldap_config(db)
-    mock_csv = get_raw(db, "ldap.mock_users")
-    rows, err = list_ldap_users(cfg, mock_csv)
+    rows, err = list_ldap_users(cfg)
     if err:
         return {"ok": False, "error": err}
     created = 0

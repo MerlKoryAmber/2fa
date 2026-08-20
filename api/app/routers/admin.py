@@ -10,7 +10,8 @@ from app.db import get_db
 from app.models import Admin, AuditEvent, Policy, User
 from app.otp import encrypt_totp_secret, generate_totp_secret, totp_qr_png_bytes, totp_uri, verify_totp
 from app.radius_flow import VALID_METHODS, default_policy
-from app.routers.auth import current_admin
+from app.routers.auth import current_admin, require_roles
+from app.rbac import ROLE_ADMIN, ROLE_AUDITOR, ROLE_OPERATOR
 from app.enroll_service import create_invite, ensure_totp_pending, invite_ttl
 from app.ldap_sync import run_ldap_sync
 from app.mail_service import send_invite_email
@@ -18,7 +19,7 @@ from app.settings_service import app_public_base_url, ldap_config
 from app.token_service import ensure_token_serial, find_by_serial, list_tokens, revoke_token, set_token_active
 from app.user_service import list_users as filter_users
 
-router = APIRouter(prefix="/api", tags=["admin"], dependencies=[Depends(current_admin)])
+router = APIRouter(prefix="/api", tags=["admin"])
 
 
 class UserPatch(BaseModel):
@@ -54,12 +55,18 @@ def list_users(
     method: str | None = None,
     totp: str | None = None,
     db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR)),
 ):
     return filter_users(db, ad=ad, email=email, method=method, totp=totp)
 
 
 @router.patch("/users/{user_id}")
-def patch_user(user_id: int, body: UserPatch, db: Session = Depends(get_db), admin: Admin = Depends(current_admin)):
+def patch_user(
+    user_id: int,
+    body: UserPatch,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -79,7 +86,7 @@ def patch_user(user_id: int, body: UserPatch, db: Session = Depends(get_db), adm
 
 
 @router.post("/users/sync-ldap")
-def sync_ldap_users(db: Session = Depends(get_db), admin: Admin = Depends(current_admin)):
+def sync_ldap_users(db: Session = Depends(get_db), admin: Admin = Depends(require_roles(ROLE_ADMIN))):
     out = run_ldap_sync(db, by=admin.username)
     if not out.get("ok"):
         raise HTTPException(400, out.get("error", "LDAP sync failed"))
@@ -113,7 +120,7 @@ def create_invite_link(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    admin: Admin = Depends(current_admin),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR)),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -134,7 +141,7 @@ def send_invite(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    admin: Admin = Depends(current_admin),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR)),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -156,7 +163,7 @@ def send_invite(
 
 
 @router.post("/users/{user_id}/totp/issue")
-def issue_totp(user_id: int, db: Session = Depends(get_db), admin: Admin = Depends(current_admin)):
+def issue_totp(user_id: int, db: Session = Depends(get_db), admin: Admin = Depends(require_roles(ROLE_ADMIN))):
     """Выпустить TOTP без confirm — для ручной пересылки пользователю."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -168,7 +175,7 @@ def issue_totp(user_id: int, db: Session = Depends(get_db), admin: Admin = Depen
 
 
 @router.post("/users/{user_id}/totp/enroll")
-def enroll_totp(user_id: int, db: Session = Depends(get_db)):
+def enroll_totp(user_id: int, db: Session = Depends(get_db), _: Admin = Depends(require_roles(ROLE_ADMIN))):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -188,7 +195,12 @@ def enroll_totp(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/users/{user_id}/totp/confirm")
-def confirm_totp(user_id: int, body: TotpConfirm, db: Session = Depends(get_db)):
+def confirm_totp(
+    user_id: int,
+    body: TotpConfirm,
+    db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.totp_secret_encrypted:
         raise HTTPException(404, "Enrollment not started")
@@ -203,7 +215,7 @@ def confirm_totp(user_id: int, body: TotpConfirm, db: Session = Depends(get_db))
 
 
 @router.get("/policies")
-def get_policies(db: Session = Depends(get_db)):
+def get_policies(db: Session = Depends(get_db), _: Admin = Depends(require_roles(ROLE_ADMIN))):
     p = default_policy(db)
     return {
         "id": p.id,
@@ -221,7 +233,12 @@ def get_policies(db: Session = Depends(get_db)):
 
 
 @router.patch("/policies/{policy_id}")
-def patch_policy(policy_id: int, body: PolicyPatch, db: Session = Depends(get_db)):
+def patch_policy(
+    policy_id: int,
+    body: PolicyPatch,
+    db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
     p = db.query(Policy).filter(Policy.id == policy_id).first()
     if not p:
         raise HTTPException(404, "Policy not found")
@@ -232,7 +249,11 @@ def patch_policy(policy_id: int, body: PolicyPatch, db: Session = Depends(get_db
 
 
 @router.get("/audit")
-def list_audit(limit: int = 200, db: Session = Depends(get_db)):
+def list_audit(
+    limit: int = 200,
+    db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_AUDITOR)),
+):
     rows = db.query(AuditEvent).order_by(AuditEvent.id.desc()).limit(min(limit, 500)).all()
     return [
         {
@@ -256,6 +277,7 @@ def get_tokens(
     user: str | None = None,
     status: str | None = None,
     db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR, ROLE_AUDITOR)),
 ):
     return list_tokens(db, serial=serial, token_type=type, user=user, status=status)
 
@@ -265,7 +287,7 @@ def patch_token(
     serial: str,
     body: TokenPatch,
     db: Session = Depends(get_db),
-    admin: Admin = Depends(current_admin),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN)),
 ):
     row = find_by_serial(db, serial)
     if not row:
@@ -293,8 +315,7 @@ def patch_token(
 
 
 @router.get("/stats")
-def stats(db: Session = Depends(get_db)):
+def stats(db: Session = Depends(get_db), _: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR, ROLE_AUDITOR))):
     users = db.query(User).count()
     enrolled = db.query(User).filter(User.otp_method != "NONE").count()
-    cfg = ldap_config(db)
-    return {"users": users, "enrolled": enrolled, "ldap_mock": cfg.mock}
+    return {"users": users, "enrolled": enrolled, "ldap_configured": bool(ldap_config(db).servers)}

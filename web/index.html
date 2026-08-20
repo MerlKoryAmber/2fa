@@ -32,6 +32,7 @@
       <div class="sidebar-footer">
         <div class="sidebar-user">
           <span id="who" class="who"></span>
+          <button id="change-password-btn" type="button" class="ghost btn-sm">Сменить пароль</button>
           <button id="logout" type="button" class="ghost btn-sm">Выход</button>
         </div>
       </div>
@@ -44,7 +45,7 @@
       <main class="content">
         <section id="dash">
           <div class="cards" id="stats"></div>
-          <p class="muted">Lab: <code>demo</code> / LDAP mock <code>demo</code>, TOTP <code>JBSWY3DPEHPK3PXP</code>. RADIUS secret — в настройках.</p>
+          <p class="muted">Lab: пользователь <code>demo</code> в seed (TOTP). LDAP — только реальный AD в настройках. RADIUS secret — в настройках.</p>
         </section>
         <section id="tokens" class="hidden">
           <div class="panel">
@@ -92,6 +93,7 @@
               <button type="button" data-settings-tab="app" class="settings-tab">Приложение</button>
               <button type="button" data-settings-tab="telegram" class="settings-tab">Telegram</button>
               <button type="button" data-settings-tab="certificates" class="settings-tab">Сертификаты</button>
+              <button type="button" data-settings-tab="access" class="settings-tab">Доступ</button>
             </nav>
             <p id="settings-flash" class="flash-msg flash-ok hidden" role="status"></p>
             <form id="settings-form" class="panel settings-stack"></form>
@@ -183,6 +185,27 @@
         <button type="button" id="confirm-cancel" class="ghost btn-sm">Отмена</button>
         <button type="button" id="confirm-ok" class="btn-sm"></button>
       </div>
+    </div>
+  </div>
+  <div id="pwd-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pwd-title">
+    <div class="modal-card">
+      <h2 id="pwd-title" class="modal-title">Смена пароля</h2>
+      <form id="pwd-form" class="settings-stack modal-form">
+        <div class="field">
+          <label for="pwd-current">Текущий пароль</label>
+          <input id="pwd-current" name="current_password" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="field">
+          <label for="pwd-new">Новый пароль</label>
+          <input id="pwd-new" name="new_password" type="password" autocomplete="new-password" minlength="8" required />
+          <p class="field-hint">Минимум 8 символов.</p>
+        </div>
+        <p id="pwd-err" class="err"></p>
+        <div class="modal-actions">
+          <button type="button" id="pwd-cancel" class="ghost btn-sm">Отмена</button>
+          <button type="submit" class="btn-sm">Сохранить</button>
+        </div>
+      </form>
     </div>
   </div>
   <script src="/app.js"></script>

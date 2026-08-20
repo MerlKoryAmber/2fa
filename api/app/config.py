@@ -14,8 +14,6 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = "changeme"
 
-    ldap_mock: bool = True
-    ldap_mock_password: str = "demo"
     ldap_url: str = ""
     ldap_servers: str = ""
     ldap_use_ssl: bool = True
@@ -26,6 +24,8 @@ class Settings(BaseSettings):
     ldap_bind_password: str = ""
     ldap_sync_ou: str = ""
     ldap_sync_group: str = ""
+    panel_operator_group: str = ""
+    panel_auditor_group: str = ""
 
     totp_issuer: str = "Own2FA"
     totp_window_steps: int = 1
@@ -53,7 +53,6 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_invite_subject: str = ""
     smtp_invite_body_template: str = ""
-    ldap_mock_users: str = "demo:demo@lab.local:Demo User,alice:alice@lab.local:Alice Lab"
 
     demo_username: str = "demo"
     demo_password: str = "demo"

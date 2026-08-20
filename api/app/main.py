@@ -53,7 +53,15 @@ def seed():
     try:
         seed_from_env(db)
         if not db.query(Admin).filter(Admin.username == settings.admin_username).first():
-            db.add(Admin(username=settings.admin_username, password_hash=hash_password(settings.admin_password)))
+            db.add(
+                Admin(
+                    username=settings.admin_username,
+                    password_hash=hash_password(settings.admin_password),
+                    role="admin",
+                    is_active=True,
+                    auth_source="local",
+                )
+            )
         policy = db.query(Policy).first()
         if not policy:
             db.add(Policy())

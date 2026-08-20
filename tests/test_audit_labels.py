@@ -13,6 +13,6 @@ def test_format_audit_meta_reason():
 
 
 def test_format_audit_meta_settings_keys():
-    text = format_audit_meta({"keys": ["ldap_mock", "smtp_host"]})
-    assert "Mock LDAP" in text
+    text = format_audit_meta({"keys": ["ldap_base_dn", "smtp_host"]})
+    assert "Base DN" in text
     assert "SMTP хост" in text

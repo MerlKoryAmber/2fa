@@ -48,7 +48,8 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 |--------|------|------------|
 | web | 80→443 | Админка + `/enroll/{token}`; volume `ssl_certs` → nginx TLS |
 | api | 8000 | FastAPI; volume `ssl_certs` → `/data/ssl` |
-| worker | — | Celery: ExpressMS, Telegram OTP |
+| worker | — | Celery: LDAP sync (очередь `default`) |
+| worker-otp | — | Celery: ExpressMS / Telegram OTP (очередь `otp`) |
 | **beat** | — | Celery Beat: **авто LDAP sync каждые 30 мин** |
 | db | — | PostgreSQL 16 |
 | redis | — | Celery + rate-limit |

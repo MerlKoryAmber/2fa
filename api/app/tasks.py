@@ -25,7 +25,7 @@ def sync_ldap_users():
         db.close()
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=5)
+@celery_app.task(name="app.tasks.send_expressms_otp", bind=True, max_retries=3, default_retry_delay=5)
 def send_expressms_otp(self, expressms_id: str, otp: str):
     db = SessionLocal()
     try:
@@ -48,7 +48,7 @@ def send_expressms_otp(self, expressms_id: str, otp: str):
         raise self.retry(exc=exc)
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=5)
+@celery_app.task(name="app.tasks.send_telegram_otp", bind=True, max_retries=3, default_retry_delay=5)
 def send_telegram_otp(self, chat_id: str, otp: str):
     db = SessionLocal()
     try:

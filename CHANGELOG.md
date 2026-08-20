@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — UI Interros / MK 2FA
+
+- Расцветка и экран входа как у Squid Proxy Manager; логотип + Inter локально (`web/assets/`)
+- Бренд панели **MK 2FA** (Cinzel локально); сайдбар navy, акцент gold; меню без иконок
+- User-menu справа сверху; бренд-полоса и topbar одной высоты (`--topbar-h`) — без «ступеньки»
+
+## 2026-08-21 (МСК) — worker-otp (очереди Celery)
+
+- Очереди: `default` (LDAP sync) и `otp` (ExpressMS / Telegram)
+- Сервис **worker-otp** в compose; recreate каналов без остановки api/radius/web
+
 ## 2026-08-20 (МСК, вечер) — инструменты миграции LinOTP
 
 - Каталог `migration/`: export/import TOTP seed (lab → CSV → тест Own 2FA)

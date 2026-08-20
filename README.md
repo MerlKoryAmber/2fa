@@ -11,7 +11,8 @@
 |--------|------|------------|
 | **web** | 80 → 443 | Админка + `/enroll/{token}`; TLS из volume `ssl_certs` |
 | **api** | 8000 | FastAPI |
-| **worker** | — | Celery: OTP в ExpressMS / Telegram |
+| **worker** | — | Celery: LDAP sync (очередь `default`) |
+| **worker-otp** | — | Celery: ExpressMS / Telegram OTP (очередь `otp`) |
 | **beat** | — | Celery Beat: авто LDAP sync каждые **30 мин** |
 | **db** | — | PostgreSQL 16 |
 | **redis** | — | очередь + rate-limit |
@@ -69,6 +70,7 @@ HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`.
 
 ## Админка (что умеет)
 
+Админка в UI: бренд **MK 2FA** (локальные шрифты/логотип в `web/assets/`).  
 Боковая панель: **Сводка → Токены → Пользователи → Политика → Аудит → Настройки**.
 
 - **Настройки:** LDAP (несколько DC, OU/группа sync), RADIUS (secret, allowed NAS), ExpressMS, SMTP (шаблон приглашения), Приложение (`public_base_url`), Telegram, **Сертификаты** (HTTPS cert+key, root CA).
@@ -125,7 +127,8 @@ Mock LDAP **удалён** — только реальный AD.
 
 ## ExpressMS / Telegram / SMTP
 
-Вкладки в настройках. Lab: dry-run по умолчанию (код в лог worker, без реальной отправки).
+Вкладки в настройках. Lab: dry-run по умолчанию (код в лог **worker-otp**, без реальной отправки).
+Обновление каналов OTP: пересобрать/recreate только `worker-otp` — api/radius/web/LDAP-worker не трогать.
 
 ```
 EXPRESSMS_DRY_RUN=true

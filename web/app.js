@@ -96,6 +96,7 @@ async function api(path, opts = {}) {
 }
 
 function showApp() {
+  document.documentElement.classList.add("session");
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
   applyRoleNav();
@@ -147,8 +148,43 @@ $("#logout").addEventListener("click", () => {
   localStorage.removeItem("mfa_role");
   localStorage.removeItem("mfa_user");
   localStorage.removeItem("mfa_auth_source");
+  document.documentElement.classList.remove("session");
   location.reload();
 });
+
+function closeUserMenu() {
+  const dd = $("#user-menu-dropdown");
+  const btn = $("#user-menu-btn");
+  if (!dd || !btn) return;
+  dd.classList.add("hidden");
+  btn.setAttribute("aria-expanded", "false");
+}
+
+function toggleUserMenu() {
+  const dd = $("#user-menu-dropdown");
+  const btn = $("#user-menu-btn");
+  if (!dd || !btn) return;
+  const open = dd.classList.contains("hidden");
+  dd.classList.toggle("hidden", !open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+$("#user-menu-btn")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleUserMenu();
+});
+$("#user-menu-dropdown")?.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => closeUserMenu());
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeUserMenu();
+});
+$("#change-password-btn")?.addEventListener("click", () => {
+  closeUserMenu();
+  $("#pwd-overlay").classList.remove("hidden");
+  $("#pwd-err").textContent = "";
+  $("#pwd-form").reset();
+});
+$("#logout")?.addEventListener("click", () => closeUserMenu());
 
 const PAGE_TITLES = {
   dash: "Сводка",
@@ -1294,14 +1330,13 @@ if (token) {
       $("#who").textContent = `${m.username} · ${m.role_label || meRole}`;
       showApp();
     })
-    .catch(() => {});
+    .catch(() => {
+      document.documentElement.classList.remove("session");
+      $("#login").classList.remove("hidden");
+      $("#app").classList.add("hidden");
+    });
 }
 
-$("#change-password-btn")?.addEventListener("click", () => {
-  $("#pwd-overlay").classList.remove("hidden");
-  $("#pwd-err").textContent = "";
-  $("#pwd-form").reset();
-});
 $("#pwd-cancel")?.addEventListener("click", () => $("#pwd-overlay").classList.add("hidden"));
 $("#pwd-form")?.addEventListener("submit", async (e) => {
   e.preventDefault();

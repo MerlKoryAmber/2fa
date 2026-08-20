@@ -33,5 +33,5 @@ python3 migration/import_seeds.py /path/to/seeds_export.csv          # dry-run
 python3 migration/import_seeds.py /path/to/seeds_export.csv --apply
 ```
 
-Политика: `creation >= 2026-01-01`; дубль TOTP на sam → новейший.  
-Чеклист: `LINOTP_MIGRATION_TODO.md`.
+Фильтр: только active TOTP + GUID из `guid_map.csv`.  
+Дубль TOTP на один sam → берётся самый новый.

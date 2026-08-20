@@ -3,24 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Own 2FA</title>
+  <title>MK 2FA</title>
+  <script>
+    try {
+      if (localStorage.getItem("mfa_token")) document.documentElement.classList.add("session");
+    } catch (e) {}
+  </script>
+  <style>
+    /* критично до style.css — иначе мелькает логин при F5 */
+    html.session #login { display: none !important; }
+    html.session #app.hidden { display: grid !important; }
+  </style>
+  <link rel="stylesheet" href="/assets/css/inter-font.css" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 </head>
 <body>
-  <div id="login" class="wrap">
-    <h1>Own 2FA</h1>
-    <p class="muted">LDAP + RADIUS · TOTP / ExpressMS / Telegram</p>
-    <form id="login-form">
-      <label>Логин<input name="username" value="admin" autocomplete="username" /></label>
-      <label>Пароль<input name="password" type="password" value="changeme" autocomplete="current-password" /></label>
-      <button type="submit">Войти</button>
-      <p id="login-err" class="err"></p>
-    </form>
+  <div id="login" class="login-page">
+    <div class="login-box">
+      <div class="logo">
+        <div class="brand-mark brand-mark-lg" aria-hidden="true">
+          <img src="/assets/img/logo.png" alt="" width="78" height="44" />
+        </div>
+        <h1 class="brand-title">MK&ensp;2FA</h1>
+        <span class="tagline">LDAP · RADIUS · MFA</span>
+      </div>
+      <form id="login-form">
+        <label>Логин<input name="username" value="admin" autocomplete="username" /></label>
+        <label>Пароль<input name="password" type="password" value="changeme" autocomplete="current-password" /></label>
+        <button type="submit">Войти</button>
+        <p id="login-err" class="err"></p>
+      </form>
+    </div>
   </div>
 
   <div id="app" class="app-shell hidden">
     <aside class="sidebar">
-      <div class="sidebar-brand">Own 2FA</div>
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">
+          <img src="/assets/img/logo.png" alt="" width="42" height="24" />
+        </div>
+        <div class="brand-copy">
+          <h1 class="brand-title">MK&ensp;2FA</h1>
+          <span class="brand-sub">Access Control</span>
+        </div>
+      </div>
       <nav class="sidebar-nav">
         <button type="button" data-tab="dash" class="nav-item active">Сводка</button>
         <button type="button" data-tab="tokens" class="nav-item">Токены</button>
@@ -29,18 +59,21 @@
         <button type="button" data-tab="audit" class="nav-item">Аудит</button>
         <button type="button" data-tab="settings" class="nav-item">Настройки</button>
       </nav>
-      <div class="sidebar-footer">
-        <div class="sidebar-user">
-          <span id="who" class="who"></span>
-          <button id="change-password-btn" type="button" class="ghost btn-sm">Сменить пароль</button>
-          <button id="logout" type="button" class="ghost btn-sm">Выход</button>
-        </div>
-      </div>
     </aside>
 
     <div class="main-area">
       <header class="topbar">
         <h1 id="page-title" class="page-title">Сводка</h1>
+        <div class="user-menu" id="user-menu">
+          <button type="button" id="user-menu-btn" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
+            <span id="who" class="who"></span>
+            <span class="user-menu-caret" aria-hidden="true">▾</span>
+          </button>
+          <div id="user-menu-dropdown" class="user-menu-dropdown hidden" role="menu">
+            <button type="button" id="change-password-btn" class="user-menu-item" role="menuitem">Сменить пароль</button>
+            <button type="button" id="logout" class="user-menu-item" role="menuitem">Выход</button>
+          </div>
+        </div>
       </header>
       <main class="content">
         <section id="dash">

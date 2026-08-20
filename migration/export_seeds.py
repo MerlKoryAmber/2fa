@@ -28,7 +28,6 @@ ENC_KEY_PATH = INCOMING / "encKey"
 GUID_MAP = INCOMING / "guid_map.csv"
 DEFAULT_OUT = Path("/root/linotp-migrate/work/seeds_export.csv")
 INV_SCRIPT = Path(__file__).resolve().parent / "inventory_from_dump.py"
-MIGRATE_FROM = datetime(2026, 1, 1)
 
 
 def load_inv():
@@ -56,11 +55,6 @@ def main() -> int:
     ap.add_argument("--guid-map", type=Path, default=GUID_MAP)
     ap.add_argument("--dump", type=Path, default=DUMP)
     ap.add_argument("--enc-key", type=Path, default=ENC_KEY_PATH)
-    ap.add_argument(
-        "--all-dates",
-        action="store_true",
-        help="без фильтра creation >= 2026-01-01",
-    )
     args = ap.parse_args()
 
     for p, name in ((args.dump, "dump"), (args.enc_key, "encKey"), (args.guid_map, "guid_map")):
@@ -84,7 +78,6 @@ def main() -> int:
     # sam -> list of candidate rows (для выбора одного при дублях)
     by_sam: dict[str, list[dict]] = defaultdict(list)
     decrypt_fail = 0
-    skip_old = 0
     skip_unmapped = 0
 
     for fields in raw_rows:
@@ -98,10 +91,6 @@ def main() -> int:
             skip_unmapped += 1
             continue
         created = parse_creation(d.get("LinOtpCreationDate"))
-        if not args.all_dates:
-            if created is None or created < MIGRATE_FROM:
-                skip_old += 1
-                continue
         try:
             seed = decrypt_totp_seed(d["LinOtpKeyEnc"], d["LinOtpKeyIV"], enc_key)
             b32 = seed_to_base32(seed)
@@ -161,8 +150,7 @@ def main() -> int:
 
     print(
         f"exported={len(out_rows)} decrypt_fail={decrypt_fail} "
-        f"skip_old={skip_old} unmapped_active_totp_rows≈{skip_unmapped} "
-        f"sam_collisions={collisions}",
+        f"unmapped_active_totp_rows≈{skip_unmapped} sam_collisions={collisions}",
         file=sys.stderr,
     )
     print(args.output)

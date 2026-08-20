@@ -1,41 +1,41 @@
 # Own 2FA Admin UI — Design System
 
-Источник: [Linear](https://getdesign.md/linear.app/design-md) из коллекции
-[VoltAgent/awesome-claude-design](https://github.com/VoltAgent/awesome-claude-design).
-Ultra-minimal dark admin: точная типографика, фиолетовый акцент, формы в одну колонку.
+Источник оформления: соседний **Squid Proxy Manager** (Interros corporate identity).  
+Шрифты и логотип — **локально** в `web/assets/` (без CDN).
 
 ## Принципы
 
-- Одна колонка, max-width формы ~560px
-- Чекбокс + подпись — одна строка (`flex`, gap 10px); несколько вариантов — **столбик** (`.choice-stack`)
-- Radio — тот же паттерн, что checkbox (`.check-row`)
-- Секции — `fieldset` + uppercase legend
-- Подсказки — muted 12px под полем; **у каждого значимого поля**
-- Без grid из двух колонок в настройках
-- **Не показывать** snake_case API и comma-separated enum — только выбор в UI (§21 CLAUDE.md)
+- Светлый контент + тёмный navy сайдбар, акцент gold `#c9a96e`
+- Одна колонка форм; checkbox/radio — `.check-row` / `.choice-stack`
+- Секции — `fieldset.settings-section` + legend внутри (не на рамке)
+- **Без иконок** у пунктов меню
+- **Не показывать** snake_case API (§21 CLAUDE.md)
 
 ## Tokens
 
 ```css
---bg: #0a0a0c;
---surface: #141417;
---surface-2: #1c1c21;
---border: #27272f;
---fg: #eeeef0;
---muted: #8b8d98;
---accent: #5e6ad2;
---accent-hover: #6b77db;
---err: #e5484d;
---radius: 6px;
---font: "Inter", system-ui, sans-serif;
+--ir-primary: #0f1b2e;
+--ir-accent: #c9a96e;
+--bg: #f0f2f5;
+--surface: #ffffff;
+--border: #e2e5e9;
+--fg: #1a1a1a;
+--muted: #8a94a3;
+--font: Inter (local /assets/fonts/inter-*.ttf);
 ```
+
+## Ассеты
+
+| Путь | Что |
+|------|-----|
+| `web/assets/fonts/` | Inter 400/500/600/700 |
+| `web/assets/css/inter-font.css` | @font-face |
+| `web/assets/img/logo.png` | логотип (из squid-panel) |
+| `web/favicon*.png` | favicon |
 
 ## Компоненты
 
-- **field** — label сверху, input на всю ширину
-- **field-check** — checkbox слева, текст справа, на всю строку
-- **choice-stack** — вертикальный список checkbox/radio
-- **field-group-label** — заголовок группы выбора
-- **settings-section** — fieldset с отступом между секциями
-- **btn-primary** — accent fill
-- **btn-ghost** — transparent border
+- Login: `.login-page` / `.login-box` / `.brand-mark`
+- Sidebar: navy + left accent на `.nav-item.active`
+- User menu: top-right dropdown
+- **btn** primary = gold на navy text; **ghost** = outline

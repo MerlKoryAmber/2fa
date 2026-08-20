@@ -23,7 +23,7 @@ down:
 	podman-compose down
 
 rebuild:
-	podman-compose up --build -d --force-recreate api worker web radius
+	podman-compose up --build -d --force-recreate api worker worker-otp web radius
 
 install:
 	./scripts/install.sh --skip-pkgs

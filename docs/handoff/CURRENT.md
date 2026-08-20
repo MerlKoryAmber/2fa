@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~01:40 МСК |
-| Ветка / коммит | `main` — MK 2FA rename + F5-tab (после push) |
+| Ветка / коммит | `main` @ `e712c69` (MK 2FA rename + F5-tab) |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |

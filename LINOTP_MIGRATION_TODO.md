@@ -1,10 +1,10 @@
-# LinOTP → Own 2FA — стратегия B (перенос секретов)
+# LinOTP → MK 2FA — стратегия B (перенос секретов)
 
 _Создано: 20.08.2026_  
 _Статус: **В РАБОТЕ** (старт 20.08.2026 ~21:30 МСК)_  
-_Стратегия: **B** — decrypt `LinOtpKeyEnc` + импорт в Own 2FA_
+_Стратегия: **B** — decrypt `LinOtpKeyEnc` + импорт в MK 2FA_
 
-Не в `PLAN_OWN_2FA_SYSTEM_RU.md` как продуктовая фича; процесс миграции.
+Не в `PLAN_MK_2FA_SYSTEM_RU.md` как продуктовая фича; процесс миграции.
 
 ---
 
@@ -12,7 +12,7 @@ _Стратегия: **B** — decrypt `LinOtpKeyEnc` + импорт в Own 2FA_
 
 | Кто | Делает |
 |-----|--------|
-| **Merl** | Бэкап HOTP (`linotp.sql` + `encKey`); живой LDAP / тест Own 2FA; GUID→sAMAccountName CSV; приёмка OTP на тесте |
+| **Merl** | Бэкап HOTP (`linotp.sql` + `encKey`); живой LDAP / тест MK 2FA; GUID→sAMAccountName CSV; приёмка OTP на тесте |
 | **Агент (lab `/root/2fa`)** | Площадка `/root/linotp-migrate/`; inventory / decrypt / dry-run / скрипты; **без** доступа к живому AD |
 
 Секреты и дамп — только `/root/linotp-migrate/` (вне git). В репо — скрипты + отчёты без seed.
@@ -55,7 +55,7 @@ _Стратегия: **B** — decrypt `LinOtpKeyEnc` + импорт в Own 2FA_
 | 5 | Пилот decrypt 1–3 токена | после 2 | агент |
 | 6 | Политика коллизий (дубли TOTP → один seed) | после 3 | согласовать |
 | 7 | Dry-run импорта (числа) | после 4–6 | агент |
-| 8 | Apply на **тест** Own 2FA | Merl / по договорённости | тест-хост |
+| 8 | Apply на **тест** MK 2FA | Merl / по договорённости | тест-хост |
 | 9 | Приёмка OTP (RADIUS/API) | Merl | тест |
 | 10 | CHANGELOG + handoff + ADR | перед push | агент |
 
@@ -99,4 +99,4 @@ FROM Token GROUP BY LinOtpTokenType;
 
 - Не трогать prod Token (UPDATE/DELETE)
 - Не коммитить дампы, encKey, BINDPW, CSV с seed
-- Не apply в prod Own 2FA без явной команды
+- Не apply в prod MK 2FA без явной команды

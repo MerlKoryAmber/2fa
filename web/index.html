@@ -5,14 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MK 2FA</title>
   <script>
-    try {
-      if (localStorage.getItem("mfa_token")) document.documentElement.classList.add("session");
-    } catch (e) {}
+    /* до paint: сессия + вкладка — иначе F5 мелькает логин/чужие секции и сбрасывает на Сводку */
+    (function () {
+      try {
+        if (!localStorage.getItem("mfa_token")) return;
+        var root = document.documentElement;
+        root.classList.add("session");
+        var raw = (location.hash || "").replace(/^#/, "");
+        if (!raw) {
+          try { raw = sessionStorage.getItem("mfa_tab") || ""; } catch (e) {}
+        }
+        var tab = (raw.split("/")[0] || "dash").toLowerCase();
+        if (!/^(dash|tokens|users|policy|audit|settings)$/.test(tab)) tab = "dash";
+        root.setAttribute("data-tab", tab);
+        if (tab === "settings") {
+          var st = raw.split("/")[1] || "";
+          try { if (!st) st = sessionStorage.getItem("mfa_settings_tab") || ""; } catch (e) {}
+          if (st) root.setAttribute("data-settings-tab", st);
+        }
+      } catch (e) {}
+    })();
   </script>
   <style>
-    /* критично до style.css — иначе мелькает логин при F5 */
+    /* критично до style.css */
+    .hidden { display: none !important; }
     html.session #login { display: none !important; }
     html.session #app.hidden { display: grid !important; }
+    html.session[data-tab] .content > section { display: none !important; }
+    html.session[data-tab="dash"] #dash,
+    html.session[data-tab="tokens"] #tokens,
+    html.session[data-tab="users"] #users,
+    html.session[data-tab="policy"] #policy,
+    html.session[data-tab="audit"] #audit,
+    html.session[data-tab="settings"] #settings { display: block !important; }
   </style>
   <link rel="stylesheet" href="/assets/css/inter-font.css" />
   <link rel="stylesheet" href="/style.css" />
@@ -78,7 +103,6 @@
       <main class="content">
         <section id="dash">
           <div class="cards" id="stats"></div>
-          <p class="muted">Lab: пользователь <code>demo</code> в seed (TOTP). LDAP — только реальный AD в настройках. RADIUS secret — в настройках.</p>
         </section>
         <section id="tokens" class="hidden">
           <div class="panel">

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Установка Own 2FA на Linux: зависимости хоста + .env + compose up.
+# Установка MK 2FA на Linux: зависимости хоста + .env + compose up.
 # Использование:
 #   sudo ./scripts/install.sh
-#   sudo ./scripts/install.sh --dir /opt/own2fa --repo https://github.com/MerlKoryAmber/2fa.git
+#   sudo ./scripts/install.sh --dir /opt/mk2fa --repo https://github.com/MerlKoryAmber/2fa.git
 #   sudo ./scripts/install.sh --skip-pkgs   # только стек, пакеты уже стоят
 set -euo pipefail
 
@@ -12,8 +12,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 SKIP_PKGS=0
 INSTALL_DIR=""
-REPO_URL="${OWN2FA_REPO_URL:-https://github.com/MerlKoryAmber/2fa.git}"
-BRANCH="${OWN2FA_BRANCH:-main}"
+REPO_URL="${MK2FA_REPO_URL:-${OWN2FA_REPO_URL:-https://github.com/MerlKoryAmber/2fa.git}}"
+BRANCH="${MK2FA_BRANCH:-${OWN2FA_BRANCH:-main}}"
 
 usage() {
   cat <<'EOF'
@@ -105,7 +105,7 @@ main() {
 
   cat <<EOF
 
-=== Own 2FA установлен ===
+=== MK 2FA установлен ===
 Каталог:     $REPO_ROOT
 Панель:      ${pub}/
 Health:      curl -sk https://127.0.0.1/health

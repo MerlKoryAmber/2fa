@@ -18,7 +18,7 @@ from app.token_service import ensure_token_serial, user_to_token
 
 log = logging.getLogger("uvicorn.error")
 
-app = FastAPI(title="Own 2FA", version="0.3.0")
+app = FastAPI(title="MK 2FA", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

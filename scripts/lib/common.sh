@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Общие функции для install / uninstall / update Own 2FA.
+# Общие функции для install / uninstall / update MK 2FA.
 # shellcheck disable=SC2034
 
 set -euo pipefail
 
-_OWN2FA_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${_OWN2FA_LIB_DIR}/../.." && pwd)"
+_MK2FA_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${_MK2FA_LIB_DIR}/../.." && pwd)"
 
 # shellcheck disable=SC2034
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$REPO_ROOT" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')}"
 if [[ -z "$COMPOSE_PROJECT_NAME" ]]; then
-  COMPOSE_PROJECT_NAME="own2fa"
+  COMPOSE_PROJECT_NAME="mk2fa"
 fi
 
-log()  { printf '[own2fa] %s\n' "$*"; }
-warn() { printf '[own2fa] WARN: %s\n' "$*" >&2; }
-die()  { printf '[own2fa] ERROR: %s\n' "$*" >&2; exit 1; }
+log()  { printf '[mk2fa] %s\n' "$*"; }
+warn() { printf '[mk2fa] WARN: %s\n' "$*" >&2; }
+die()  { printf '[mk2fa] ERROR: %s\n' "$*" >&2; exit 1; }
 
 need_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -251,8 +251,8 @@ compose_up_build() {
 
 alembic_upgrade() {
   local cname
-  # типичные имена: 2fa_api_1, own2fa_api_1
-  for cname in "${COMPOSE_PROJECT_NAME}_api_1" "2fa_api_1" "own2fa_api_1"; do
+  # типичные имена: 2fa_api_1, mk2fa_api_1, own2fa_api_1 (legacy)
+  for cname in "${COMPOSE_PROJECT_NAME}_api_1" "2fa_api_1" "mk2fa_api_1" "own2fa_api_1"; do
     if have_cmd podman && podman inspect "$cname" >/dev/null 2>&1; then
       log "alembic upgrade head в $cname"
       podman exec "$cname" alembic upgrade head || warn "alembic в $cname не прошёл"

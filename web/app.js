@@ -95,17 +95,54 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-function showApp() {
+function defaultTabForRole() {
+  if (isAdmin()) return "dash";
+  if (isOperator()) return "users";
+  if (isAuditor()) return "audit";
+  return "dash";
+}
+
+function tabAllowed(tab) {
+  const btn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+  return Boolean(btn && !btn.classList.contains("hidden"));
+}
+
+function readStoredTab() {
+  let raw = (location.hash || "").replace(/^#/, "");
+  if (!raw) {
+    try {
+      raw = sessionStorage.getItem("mfa_tab") || "";
+    } catch (_) {}
+  }
+  const tab = (raw.split("/")[0] || "").toLowerCase();
+  if (TABS.includes(tab) && tabAllowed(tab)) return tab;
+  return defaultTabForRole();
+}
+
+function readStoredSettingsTab() {
+  const raw = (location.hash || "").replace(/^#/, "");
+  if (raw.startsWith("settings/")) {
+    const st = raw.split("/")[1];
+    if (st) return st;
+  }
+  try {
+    return sessionStorage.getItem("mfa_settings_tab") || "ldap";
+  } catch (_) {
+    return "ldap";
+  }
+}
+
+function showApp({ restore = true } = {}) {
   document.documentElement.classList.add("session");
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
   applyRoleNav();
-  const first =
-    (isAdmin() && "dash") ||
-    (isOperator() && "users") ||
-    (isAuditor() && "audit") ||
-    "dash";
-  switchTab(first);
+  const tab = restore ? readStoredTab() : defaultTabForRole();
+  if (tab === "settings") {
+    activeSettingsTab = readStoredSettingsTab();
+  }
+  switchTab(tab);
+  document.documentElement.setAttribute("data-tab", tab);
 }
 
 $("#login-form").addEventListener("submit", async (e) => {
@@ -126,7 +163,7 @@ $("#login-form").addEventListener("submit", async (e) => {
     localStorage.setItem("mfa_user", meUser);
     localStorage.setItem("mfa_auth_source", meAuthSource);
     $("#who").textContent = `${out.username} · ${out.role_label || meRole}`;
-    showApp();
+    showApp({ restore: false });
   } catch (err) {
     const status = err.status || 0;
     const raw = String(err.message || err);
@@ -198,21 +235,44 @@ const PAGE_TITLES = {
 const TABS = Object.keys(PAGE_TITLES);
 
 function switchTab(tab) {
+  if (!TABS.includes(tab)) tab = defaultTabForRole();
   document.querySelectorAll(".nav-item").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === tab);
   });
   TABS.forEach((id) => $("#" + id).classList.toggle("hidden", id !== tab));
   $("#page-title").textContent = PAGE_TITLES[tab] || tab;
+  document.documentElement.setAttribute("data-tab", tab);
+  try {
+    sessionStorage.setItem("mfa_tab", tab);
+  } catch (_) {}
+  let hash = tab;
+  if (tab === "settings") {
+    hash = `settings/${activeSettingsTab || "ldap"}`;
+  }
+  const next = `#${hash}`;
+  if (location.hash !== next) {
+    history.replaceState(null, "", next);
+  }
   if (tab === "dash") loadDash();
   if (tab === "tokens") loadTokens();
   if (tab === "users") loadUsers();
   if (tab === "policy") loadPolicy();
   if (tab === "audit") loadAudit();
-  if (tab === "settings") loadSettings();
+  if (tab === "settings") {
+    switchSettingsTab(activeSettingsTab || readStoredSettingsTab());
+    loadSettings();
+  }
 }
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+window.addEventListener("hashchange", () => {
+  if (!token) return;
+  const tab = readStoredTab();
+  if (tab === "settings") activeSettingsTab = readStoredSettingsTab();
+  switchTab(tab);
 });
 
 function fmtTs(iso) {
@@ -426,15 +486,23 @@ function showSettingsFlash(msg) {
 let activeSettingsTab = "ldap";
 
 function switchSettingsTab(tab) {
-  activeSettingsTab = tab;
+  activeSettingsTab = tab || "ldap";
+  document.documentElement.setAttribute("data-settings-tab", activeSettingsTab);
+  try {
+    sessionStorage.setItem("mfa_settings_tab", activeSettingsTab);
+  } catch (_) {}
+  if ((location.hash || "").replace(/^#/, "").startsWith("settings")) {
+    const next = `#settings/${activeSettingsTab}`;
+    if (location.hash !== next) history.replaceState(null, "", next);
+  }
   document.querySelectorAll(".settings-tab").forEach((b) => {
-    b.classList.toggle("active", b.dataset.settingsTab === tab);
+    b.classList.toggle("active", b.dataset.settingsTab === activeSettingsTab);
   });
   document.querySelectorAll(".settings-pane").forEach((p) => {
-    p.classList.toggle("hidden", p.dataset.settingsPane !== tab);
+    p.classList.toggle("hidden", p.dataset.settingsPane !== activeSettingsTab);
   });
   const save = $("#settings-save-actions");
-  if (save) save.classList.toggle("hidden", tab === "access");
+  if (save) save.classList.toggle("hidden", activeSettingsTab === "access");
 }
 
 document.querySelectorAll(".settings-tab").forEach((btn) => {

@@ -1,4 +1,4 @@
-# План разработки собственной 2FA системы (AD + RADIUS + Web + Docker)
+# План разработки MK 2FA (AD + RADIUS + Web + Docker)
 
 _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с lab на `/root/2fa`_
 
@@ -185,7 +185,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 cd /path/to/2fa && sudo ./scripts/install.sh
 
 # вариант B: clone в каталог
-sudo ./scripts/install.sh --dir /opt/own2fa \
+sudo ./scripts/install.sh --dir /opt/mk2fa \
   --repo https://github.com/MerlKoryAmber/2fa.git
 
 sudo ./scripts/update.sh              # pull + rebuild

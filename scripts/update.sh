@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обновление Own 2FA: git pull (если есть remote) + полный rebuild стека + миграции.
+# Обновление MK 2FA: git pull (если есть remote) + полный rebuild стека + миграции.
 #   sudo ./scripts/update.sh
 #   sudo ./scripts/update.sh --no-pull    # только образы/контейнеры
 set -euo pipefail

@@ -1,4 +1,4 @@
-"""Константы ролей панели Own 2FA."""
+"""Константы ролей панели MK 2FA."""
 
 ROLE_ADMIN = "admin"
 ROLE_OPERATOR = "operator"

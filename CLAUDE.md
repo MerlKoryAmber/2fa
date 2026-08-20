@@ -153,14 +153,14 @@ baseline → dry-run → регресс → apply с бэкапом → пров
 
 ---
 
-## (проект) Специфика — Own 2FA
+## (проект) Специфика — MK 2FA
 
 | Поле | Значение |
 |------|----------|
 | Язык | Русский (ответы, docs, текст коммитов после двоеточия) |
 | Стиль | Conventional Commits + caveman-ответы (§13) |
 | Стек | Python 3.12, FastAPI, SQLAlchemy, Celery, Postgres 16, Redis, Podman Compose, RADIUS gateway (pyrad), static web (nginx) |
-| План продукта | `PLAN_OWN_2FA_SYSTEM_RU.md` |
+| План продукта | `PLAN_MK_2FA_SYSTEM_RU.md` |
 | Деплой | `podman-compose` на CentOS Stream 9, каталог `/root/2fa`; порты 80/8000/1812udp; **не** класть IP/ключи/пароли в git |
 | Секреты | `.env`, `APP_ENCRYPTION_KEY`, JWT, LDAP bind, ExpressMS token, RADIUS shared secret, TOTP secrets — только env/secrets, не в логах |
 | **2FA каналы** | TOTP, ExpressMS (dry-run), **Telegram (dry-run, enroll chat_id вручную)** |

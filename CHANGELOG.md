@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — панель: вкладка после F5 + меню
+
+- Вкладка и settings-subtab в hash/`sessionStorage`; критичный CSS `.hidden` + `data-tab` — без мелькания чужих секций
+- Убрана подсказка Lab/demo seed со Сводки; пункты сайдбара крупнее (`1.05rem`)
+
+## 2026-08-21 (МСК) — переименование Own 2FA → MK 2FA
+
+- Продуктовое имя **MK 2FA** в README, API title, TOTP issuer, скриптах, docs, письмах
+- План: `PLAN_MK_2FA_SYSTEM_RU.md` (бывш. `PLAN_OWN_2FA_SYSTEM_RU.md`)
+
 ## 2026-08-21 (МСК) — UI Interros / MK 2FA
 
 - Расцветка и экран входа как у Squid Proxy Manager; логотип + Inter локально (`web/assets/`)
@@ -13,7 +23,7 @@
 
 ## 2026-08-20 (МСК, вечер) — инструменты миграции LinOTP
 
-- Каталог `migration/`: export/import TOTP seed (lab → CSV → тест Own 2FA)
+- Каталог `migration/`: export/import TOTP seed (lab → CSV → тест MK 2FA)
 - Без дампов/encKey/seed в git; только код + README
 
 ## 2026-08-20 (МСК) — RBAC панели + AD-вход + install

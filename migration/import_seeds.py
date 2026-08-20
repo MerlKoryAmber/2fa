@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Импорт TOTP seed в Own 2FA по sAMAccountName (= users.ad_username).
+"""Импорт TOTP seed в MK 2FA по sAMAccountName (= users.ad_username).
 
-На ТЕСТ-хосте (есть доступ к Postgres Own 2FA + APP_ENCRYPTION_KEY):
+На ТЕСТ-хосте (есть доступ к Postgres MK 2FA + APP_ENCRYPTION_KEY):
 
   # сначала dry-run (ничего не пишет)
   DATABASE_URL=... APP_ENCRYPTION_KEY=... \\
@@ -11,7 +11,7 @@
   DATABASE_URL=... APP_ENCRYPTION_KEY=... \\
     python3 migration/import_seeds.py /path/to/seeds_export.csv --apply
 
-Либо из каталога с .env Own 2FA (подхватит те же переменные):
+Либо из каталога с .env MK 2FA (подхватит те же переменные):
 
   set -a && source .env && set +a
   python3 migration/import_seeds.py seeds_export.csv --apply
@@ -73,7 +73,7 @@ def load_dotenv(path: Path) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Import TOTP seeds into Own 2FA by sAMAccountName")
+    ap = argparse.ArgumentParser(description="Import TOTP seeds into MK 2FA by sAMAccountName")
     ap.add_argument("csv_path", type=Path, help="seeds_export.csv from export_seeds.py")
     ap.add_argument("--apply", action="store_true", help="писать в БД (без флага — только dry-run)")
     ap.add_argument("--create-missing", action="store_true", help="создать user если нет в БД")

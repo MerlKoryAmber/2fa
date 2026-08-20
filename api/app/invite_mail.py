@@ -10,7 +10,7 @@ DEFAULT_INVITE_BODY = """Здравствуйте, {username}.
 
 Ссылка действует до {expires_at}.
 
-— Own 2FA"""
+— MK 2FA"""
 
 
 def invite_email_templates(db: Session) -> tuple[str, str]:

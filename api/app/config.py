@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     panel_operator_group: str = ""
     panel_auditor_group: str = ""
 
-    totp_issuer: str = "Own2FA"
+    totp_issuer: str = "MK2FA"
     totp_window_steps: int = 1
     otp_ttl_seconds: int = 60
     max_otp_attempts: int = 5

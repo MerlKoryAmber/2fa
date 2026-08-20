@@ -1,4 +1,4 @@
-/* Own 2FA — Interros corporate look (from Squid Proxy Manager). Local fonts only. */
+/* MK 2FA — Interros corporate look (from Squid Proxy Manager). Local fonts only. */
 
 :root {
   --sidebar-w: 240px;
@@ -239,8 +239,9 @@ html.session #app.hidden { display: grid !important; }
   border-left: 3px solid transparent;
   border-radius: 0;
   color: rgba(255, 255, 255, 0.7);
-  padding: 10px 24px;
-  font: 500 0.88rem var(--font);
+  padding: 14px 24px;
+  font: 500 1.05rem var(--font);
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition: all var(--transition-fast);
 }

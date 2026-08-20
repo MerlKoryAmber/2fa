@@ -1,8 +1,8 @@
-# Own 2FA
+# MK 2FA
 
-Собственная MFA: **LDAP/AD** (1-й фактор) + **TOTP / ExpressMS / Telegram** (2-й) + **RADIUS Access-Challenge** для любого NAS (не привязка к UAG).
+MFA: **LDAP/AD** (1-й фактор) + **TOTP / ExpressMS / Telegram** (2-й) + **RADIUS Access-Challenge** для любого NAS (не привязка к UAG).
 
-План и статус: [`PLAN_OWN_2FA_SYSTEM_RU.md`](PLAN_OWN_2FA_SYSTEM_RU.md).  
+План и статус: [`PLAN_MK_2FA_SYSTEM_RU.md`](PLAN_MK_2FA_SYSTEM_RU.md).  
 Репозиторий: https://github.com/MerlKoryAmber/2fa
 
 ## Состав (Podman Compose)
@@ -31,8 +31,8 @@
 cd /path/to/2fa
 sudo ./scripts/install.sh
 
-# или clone в /opt/own2fa с GitHub
-sudo ./scripts/install.sh --dir /opt/own2fa
+# или clone в /opt/mk2fa с GitHub
+sudo ./scripts/install.sh --dir /opt/mk2fa
 
 # пакеты уже стоят — только .env + compose
 sudo ./scripts/install.sh --skip-pkgs

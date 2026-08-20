@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Экспорт TOTP seed в файл для переноса на тест Own 2FA.
+"""Экспорт TOTP seed в файл для переноса на тест MK 2FA.
 
 На lab (есть linotp.sql + encKey + guid_map.csv):
 
@@ -50,7 +50,7 @@ def parse_creation(s: str | None) -> datetime | None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Export decrypted TOTP seeds for Own 2FA import")
+    ap = argparse.ArgumentParser(description="Export decrypted TOTP seeds for MK 2FA import")
     ap.add_argument("-o", "--output", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--guid-map", type=Path, default=GUID_MAP)
     ap.add_argument("--dump", type=Path, default=DUMP)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Остановка и удаление стека Own 2FA.
+# Остановка и удаление стека MK 2FA.
 #   sudo ./scripts/uninstall.sh           # down, volumes сохранить
 #   sudo ./scripts/uninstall.sh --purge   # down -v + удалить .env credentials
 #   sudo ./scripts/uninstall.sh --purge --remove-dir   # + удалить каталог репо (осторожно)

@@ -1,4 +1,4 @@
-# Own 2FA Admin UI — Design System
+# MK 2FA Admin UI — Design System
 
 Источник оформления: соседний **Squid Proxy Manager** (Interros corporate identity).  
 Шрифты и логотип — **локально** в `web/assets/` (без CDN).

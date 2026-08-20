@@ -6,11 +6,11 @@ if [ ! -f /etc/nginx/ssl/cert.pem ] || [ ! -f /etc/nginx/ssl/key.pem ]; then
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/nginx/ssl/key.pem \
     -out /etc/nginx/ssl/cert.pem \
-    -subj "/CN=own2fa.local/O=Own2FA/C=RU"
+    -subj "/CN=mk2fa.local/O=MK2FA/C=RU"
 fi
 
 if [ -f /etc/nginx/ssl/root-ca.crt ]; then
-  cp /etc/nginx/ssl/root-ca.crt /usr/local/share/ca-certificates/own2fa-root.crt
+  cp /etc/nginx/ssl/root-ca.crt /usr/local/share/ca-certificates/mk2fa-root.crt
   update-ca-certificates 2>/dev/null || true
 fi
 
@@ -27,7 +27,7 @@ sed "s/@RESOLVER@/$NS/g" /etc/nginx/conf.d/default.conf.template > /etc/nginx/co
       nginx -s reload 2>/dev/null || true
       rm -f /etc/nginx/ssl/reload.request
       if [ -f /etc/nginx/ssl/root-ca.crt ]; then
-        cp /etc/nginx/ssl/root-ca.crt /usr/local/share/ca-certificates/own2fa-root.crt
+        cp /etc/nginx/ssl/root-ca.crt /usr/local/share/ca-certificates/mk2fa-root.crt
         update-ca-certificates 2>/dev/null || true
       fi
     fi

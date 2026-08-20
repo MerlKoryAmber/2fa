@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~01:25 МСК |
-| Ветка / коммит | `main` (после push: UI MK 2FA + worker-otp) |
+| Ветка / коммит | `main` @ `dfdebb6` (UI MK 2FA + worker-otp) |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**: navy/gold, Cinzel + Inter локально, topbar = brand height |

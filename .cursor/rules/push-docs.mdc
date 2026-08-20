@@ -1,0 +1,20 @@
+---
+description: Перед любым git push — README, CHANGELOG, handoff
+alwaysApply: true
+---
+
+# Push → docs (README + CHANGELOG + handoff)
+
+Перед **любым** `git push` (код или docs) в **том же или предшествующем** коммите обновить:
+
+1. **`README.md`** — если менялись возможности, запуск, сервисы, скрипты install/update/uninstall, порты, lab credentials, alembic head.
+2. **`CHANGELOG.md`** — всегда при уходе смысловых изменений: дата **МСК**, короткий заголовок, буллеты «что вошло» (не копипаста diff). Орфография-only / правка только docs-мета — можно без новой секции.
+3. **`docs/handoff/CURRENT.md`** — всегда перед пушем кода или после заметной сессии: срез (ветка/коммит, alembic head, health), сделано, **хвосты**, «не делать», старт для следующего агента.
+
+Правила:
+
+- README/CHANGELOG/handoff устарели относительно уходящего diff — **не пушить**, сначала дописать.
+- Исключение README: в push только сам README / орфография без смены смысла — повторный «ещё раз README» не обязателен.
+- Handoff — один живой файл `CURRENT.md` (не плодить дату в имени без нужды); архив по желанию в `docs/handoff/archive/`.
+
+Детали: §6 / §10 [CLAUDE.md](/root/2fa/CLAUDE.md). Старое узкое правило `push-readme.mdc` заменено этим.

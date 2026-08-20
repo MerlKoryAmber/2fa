@@ -1,0 +1,35 @@
+---
+description: После изменений api/web/migrations — агент сам rebuild, deploy, alembic
+alwaysApply: true
+---
+
+# Деплой lab-стека (Own 2FA)
+
+Агент **сам** доводит изменения до работающего стека на `/root/2fa`. Не оставлять инструкцию «обнови вручную», если можно выполнить локально.
+
+## Когда деплоить (без вопроса человеку)
+
+После правок, затрагивающих:
+- `api/` (код, миграции, Dockerfile)
+- `web/`, `radius/`
+- `docker-compose.yml`, `.env.example` (если нужен перезапуск)
+
+**Пайплайн:**
+1. `podman build` затронутые образы (`2fa_api`, `2fa_web`, `2fa_radius`, `2fa_worker`)
+2. `podman-compose down` → `up -d` (или `--force-recreate` при зависших контейнерах)
+3. `podman exec 2fa_api_1 alembic upgrade head` — проверить `(head)` = последняя ревизия в `api/alembic/versions/`
+4. Smoke: `curl -sk https://127.0.0.1/health`, при необходимости TestClient для новых API
+
+`PYTHONPATH=/usr/local/lib/python3.9/site-packages` для `podman-compose` на этом хосте.
+
+## Когда запросить approval
+
+- `podman-compose down` на prod-like / не-lab (не наш случай в `/root/2fa`)
+- изменение `.env` с секретами, которых нет в репо
+- push, внешний SMTP с реальной отправкой наружу
+
+Auto-review блокирует compose down — **retry с approval**, не останавливаться на «сделайте сами».
+
+## После деплоя
+
+Кратко в чат: образы, ревизия alembic, health. Хвост — вслух, если миграция не дошла до head.

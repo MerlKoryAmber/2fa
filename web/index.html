@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Own 2FA</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="login" class="wrap">
+    <h1>Own 2FA</h1>
+    <p class="muted">LDAP + RADIUS · TOTP / ExpressMS / Telegram</p>
+    <form id="login-form">
+      <label>Логин<input name="username" value="admin" autocomplete="username" /></label>
+      <label>Пароль<input name="password" type="password" value="changeme" autocomplete="current-password" /></label>
+      <button type="submit">Войти</button>
+      <p id="login-err" class="err"></p>
+    </form>
+  </div>
+
+  <div id="app" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">Own 2FA</div>
+      <nav class="sidebar-nav">
+        <button type="button" data-tab="dash" class="nav-item active">Сводка</button>
+        <button type="button" data-tab="tokens" class="nav-item">Токены</button>
+        <button type="button" data-tab="users" class="nav-item">Пользователи</button>
+        <button type="button" data-tab="policy" class="nav-item">Политика</button>
+        <button type="button" data-tab="audit" class="nav-item">Аудит</button>
+        <button type="button" data-tab="settings" class="nav-item">Настройки</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <span id="who" class="who"></span>
+          <button id="logout" type="button" class="ghost btn-sm">Выход</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <header class="topbar">
+        <h1 id="page-title" class="page-title">Сводка</h1>
+      </header>
+      <main class="content">
+        <section id="dash">
+          <div class="cards" id="stats"></div>
+          <p class="muted">Lab: <code>demo</code> / LDAP mock <code>demo</code>, TOTP <code>JBSWY3DPEHPK3PXP</code>. RADIUS secret — в настройках.</p>
+        </section>
+        <section id="tokens" class="hidden">
+          <div class="panel">
+            <div class="toolbar">
+              <input id="token-filter-serial" class="filter-input" placeholder="Serial" />
+              <select id="token-filter-type" class="filter-select">
+                <option value="">Все типы</option>
+                <option value="TOTP">TOTP</option>
+                <option value="EXPRESSMS">ExpressMS</option>
+                <option value="TELEGRAM">Telegram</option>
+              </select>
+              <input id="token-filter-user" class="filter-input" placeholder="Пользователь" />
+              <select id="token-filter-status" class="filter-select">
+                <option value="">Все статусы</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="disabled">Disabled</option>
+              </select>
+              <button type="button" id="token-filter-btn" class="ghost btn-sm">Применить</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Serial</th>
+                  <th>Тип</th>
+                  <th>Пользователь</th>
+                  <th>Статус</th>
+                  <th>Выпущен</th>
+                  <th>Последнее использование</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="token-rows"></tbody>
+            </table>
+            <p id="token-empty" class="muted hidden">Нет выпущенных токенов.</p>
+          </div>
+        </section>
+        <section id="settings" class="hidden">
+          <div class="settings-wrap">
+            <nav class="settings-tabs" id="settings-tabs">
+              <button type="button" data-settings-tab="ldap" class="settings-tab active">LDAP</button>
+              <button type="button" data-settings-tab="radius" class="settings-tab">RADIUS</button>
+              <button type="button" data-settings-tab="expressms" class="settings-tab">ExpressMS</button>
+              <button type="button" data-settings-tab="smtp" class="settings-tab">SMTP</button>
+              <button type="button" data-settings-tab="app" class="settings-tab">Приложение</button>
+              <button type="button" data-settings-tab="telegram" class="settings-tab">Telegram</button>
+              <button type="button" data-settings-tab="certificates" class="settings-tab">Сертификаты</button>
+            </nav>
+            <p id="settings-flash" class="flash-msg flash-ok hidden" role="status"></p>
+            <form id="settings-form" class="panel settings-stack"></form>
+          </div>
+        </section>
+        <section id="users" class="hidden">
+          <p id="users-hint" class="muted users-hint">Пользователи из AD синхронизируются <b>автоматически каждые 30 минут</b>. «Загрузить из LDAP» — принудительно сейчас. Имя — поле displayName из AD.</p>
+          <div class="toolbar">
+            <button type="button" id="sync-ldap-btn" class="ghost btn-sm">Загрузить из LDAP</button>
+            <span id="sync-ldap-out" class="muted"></span>
+          </div>
+          <div class="panel table-panel">
+            <div class="toolbar">
+              <input id="user-filter-ad" class="filter-input" placeholder="Логин AD или имя" />
+              <input id="user-filter-email" class="filter-input" placeholder="Email" />
+              <select id="user-filter-method" class="filter-select">
+                <option value="">Все методы</option>
+                <option value="NONE">NONE</option>
+                <option value="TOTP">TOTP</option>
+                <option value="EXPRESSMS">ExpressMS</option>
+                <option value="TELEGRAM">Telegram</option>
+              </select>
+              <select id="user-filter-totp" class="filter-select">
+                <option value="">TOTP confirm</option>
+                <option value="yes">да</option>
+                <option value="no">нет</option>
+              </select>
+              <button type="button" id="user-filter-btn" class="ghost btn-sm">Применить</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>AD</th><th>Имя</th><th>Email</th><th>Активный метод</th><th>Настроенные каналы</th><th></th></tr></thead>
+              <tbody id="user-rows"></tbody>
+            </table>
+            <p id="users-empty" class="muted hidden">Ничего не найдено.</p>
+          </div>
+          <div id="enroll" class="hidden panel"></div>
+          <div id="issue-modal" class="hidden panel"></div>
+        </section>
+        <section id="policy" class="hidden">
+          <div class="settings-wrap">
+            <form id="policy-form" class="panel settings-stack"></form>
+          </div>
+        </section>
+        <section id="audit" class="hidden">
+          <div class="panel table-panel audit-panel">
+            <table class="data-table audit-table">
+              <thead><tr><th>Время</th><th>Событие</th><th>Пользователь</th><th>Подробности</th></tr></thead>
+              <tbody id="audit-rows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="user-edit-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="user-edit-title">
+    <div class="modal-card modal-card-wide">
+      <h2 id="user-edit-title" class="modal-title">2FA пользователя</h2>
+      <p id="user-edit-sub" class="modal-message muted"></p>
+      <form id="user-edit-form" class="settings-stack modal-form">
+        <div class="field">
+          <label for="ue-method">Активный метод</label>
+          <select id="ue-method" name="otp_method"></select>
+          <p class="field-hint">Какой канал использовать при RADIUS-входе. Остальные настроенные каналы сохраняются.</p>
+        </div>
+        <p id="ue-totp-status" class="field-hint"></p>
+        <div class="field">
+          <label for="ue-expressms">ID в ExpressMS</label>
+          <input id="ue-expressms" name="expressms_id" autocomplete="off" />
+          <p class="field-hint">Можно указать пользователю на странице enroll или здесь. Пусто — канал не настроен.</p>
+        </div>
+        <div class="field">
+          <label for="ue-telegram">Telegram chat_id</label>
+          <input id="ue-telegram" name="telegram_chat_id" autocomplete="off" />
+          <p class="field-hint">Можно указать пользователю на странице enroll или здесь. Пусто — канал не настроен.</p>
+        </div>
+        <p id="user-edit-err" class="err"></p>
+        <div class="modal-actions">
+          <button type="button" id="user-edit-cancel" class="ghost btn-sm">Отмена</button>
+          <button type="submit" class="btn-sm">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="confirm-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-card">
+      <h2 id="confirm-title" class="modal-title"></h2>
+      <p id="confirm-message" class="modal-message muted"></p>
+      <div class="modal-actions">
+        <button type="button" id="confirm-cancel" class="ghost btn-sm">Отмена</button>
+        <button type="button" id="confirm-ok" class="btn-sm"></button>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

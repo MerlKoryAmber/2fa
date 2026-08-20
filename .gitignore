@@ -9,3 +9,10 @@ data/
 .idea/
 .vscode/
 .design-ref/
+# LinOTP migrate secrets (если ошибочно положили в дерево репо)
+linotp-migrate/
+**/linotp.sql
+**/encKey
+**/*linotp*backup*
+**/seeds_export.csv
+**/seed*.csv

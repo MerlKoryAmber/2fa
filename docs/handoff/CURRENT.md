@@ -6,34 +6,34 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-20 ~15:05 МСК |
-| Ветка / коммит | `main` — docs `push-docs` + CHANGELOG; feature tip `280752f` |
+| Дата | 2026-08-20 ~22:50 МСК |
+| Ветка / коммит | `main` — перед push: `migration/` tools |
 | Lab | `/root/2fa`, podman-compose |
-| Alembic head | **007** (`admins.auth_source`) |
-| Health | `curl -sk https://127.0.0.1/health` |
+| Alembic head | **007** |
+| Миграция LinOTP | **В РАБОТЕ** B; инструменты в `migration/`; ждём полный guid_map |
 
-## Что сделано (последний крупный кусок)
+## Что сделано
 
-- RBAC панели: `admin` / `operator` / `auditor` (миграция 006)
-- Вход: локальный admin; оператор/аудитор — AD + группы из **Настройки → Доступ** (007)
-- Mock LDAP убран
-- `scripts/install.sh` / `update.sh` / `uninstall.sh`
-- UI: порядок вкладки Доступ; легенды `settings-section` без разреза рамкой
-- Docs-процесс: `CHANGELOG.md` + `docs/handoff/CURRENT.md` + правило `.cursor/rules/push-docs.mdc` (писать перед каждым push)
-## Хвосты (не закрыты)
+- RBAC / AD-вход / install-скрипты / легенды настроек (см. CHANGELOG 2026-08-20)
+- Старт LinOTP B: площадка `/root/linotp-migrate/`, чеклист в `LINOTP_MIGRATION_TODO.md`
+- Агент **без** живого LDAP; Merl — бэкап + AD map + тест-приёмка
 
-- LinOTP-миграция — **отложена**, чеклист `LINOTP_MIGRATION_TODO.md`
-- Известный fail теста: `test_normalize_bind_user_domain_backslash` (не блокер head)
-- Telegram bot `/start`, Discovery NAS, policy по OU/группе — backlog README
+## Хвосты
+
+- **Сейчас:** полный `guid_map.csv` → `export_seeds.py` → перенос CSV на тест → `import_seeds.py` (dry-run / `--apply`)
+- Инструменты: `migration/` (`export_seeds.py` / `import_seeds.py`)
+- Decrypt подтверждён (U2008)
+- Fail теста: `test_normalize_bind_user_domain_backslash`
+- Backlog: Telegram `/start`, Discovery NAS, policy OU
 
 ## Не делать без команды Merl
 
-- Push с force; prod-like down с `-v`
-- Возобновлять LinOTP-миграцию
-- Коммит секретов / `.env`
+- Force-push; `compose down -v` на не-lab
+- Apply миграции токенов в prod
+- Коммит секретов / `.env` / дампа LinOTP
 
 ## Следующий агент — старт
 
-1. Прочитать этот файл + `CHANGELOG.md` (верх) + `README.md`
-2. `git fetch` + `git status` + сверка alembic head в контейнере
-3. Не `git add .`; не принимать задачу за пользователя
+1. `LINOTP_MIGRATION_TODO.md` + `docs/agent_reports/linotp-migrate/REPORT.md`
+2. `ls /root/linotp-migrate/incoming/` — нужен `guid_map.csv`
+3. Не `git add .`

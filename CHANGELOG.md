@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-20 (МСК, вечер) — инструменты миграции LinOTP
+
+- Каталог `migration/`: export/import TOTP seed (lab → CSV → тест Own 2FA)
+- Без дампов/encKey/seed в git; только код + README
+
 ## 2026-08-20 (МСК) — RBAC панели + AD-вход + install
 
 - Роли админов: `admin` / `operator` / `auditor` (миграция **006**)

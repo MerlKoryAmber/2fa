@@ -178,7 +178,7 @@ curl -sk https://127.0.0.1/health
 - Telegram bot `/start`
 - Policy engine по группе/OU AD
 
-LinOTP-миграция (отложена): [`LINOTP_MIGRATION_TODO.md`](LINOTP_MIGRATION_TODO.md).
+LinOTP-миграция (в работе, инструменты в [`migration/`](migration/)): [`LINOTP_MIGRATION_TODO.md`](LINOTP_MIGRATION_TODO.md).
 
 ## Метод работы
 

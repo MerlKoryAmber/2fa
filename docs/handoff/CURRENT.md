@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~16:50 МСК |
-| Ветка / коммит | `main` **40a8d2c** (handoff ниже) |
+| Дата | 2026-08-21 ~17:00 МСК |
+| Ветка / коммит | `main` **ceb56e0** |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -20,8 +20,8 @@
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS 403:** токен только из `env_file` (не пустой `${INTERNAL_API_TOKEN}` с хоста); `.strip()`; CRLF `.env` чистит скрипт
-- **install-ready:** smoke `GET /internal/radius/config` из контейнера radius после install/update — 403 = fail скрипта, не «допилить на сервере»
+- **RADIUS 403:** токен `/internal/*` из `os.environ`; pydantic env **выше** dotenv; `compose()` export `.env` до interpolate
+- **install-ready:** smoke `GET /internal/radius/config`; при 403 — длины/sha256 env vs settings (не секрет)
 
 ## Хвосты
 

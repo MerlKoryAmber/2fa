@@ -17,7 +17,7 @@ Usage: update.sh [options]
   --no-pull     не делать git fetch/pull
   -h, --help
 
-Делает полный compose down → up --build (иначе на lab новый образ api
+Делает полный compose down → build api/radius/web → up -d (иначе на lab новый образ api
 часто не подхватывается). Затем alembic upgrade head и smoke health.
 EOF
 }

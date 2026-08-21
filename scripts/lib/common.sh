@@ -273,8 +273,13 @@ compose_up_build() {
   # Полный down+up — иначе на lab новый образ api часто не подхватывается
   log "podman/docker compose: down, затем build + up (первая сборка тянет docker.io, минуты, вывод без буфера)"
   compose down || true
-  log "podman/docker compose: up --build -d"
-  compose up --build -d
+  # Один build ./api (worker/otp/beat берут localhost/mk2fa-api) — иначе 4 параллельных COMMIT и Prepare images failed
+  log "podman/docker compose: build api, затем radius, затем web (по очереди — меньше гонок/RAM)"
+  compose build api
+  compose build radius
+  compose build web
+  log "podman/docker compose: up -d"
+  compose up -d
 }
 
 alembic_upgrade() {

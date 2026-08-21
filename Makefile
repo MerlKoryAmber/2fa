@@ -10,7 +10,7 @@ test:
 	  -e SEED_ON_STARTUP=false \
 	  -e PYTHONPATH=/app \
 	  --entrypoint pytest \
-	  localhost/2fa_api:latest \
+	  localhost/mk2fa-api:latest \
 	  /tests -q
 
 lint:

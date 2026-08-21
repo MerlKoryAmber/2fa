@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — install: один образ api, без HEALTHCHECK в Dockerfile
+
+- `api` / `worker` / `worker-otp` / `beat` делят `localhost/mk2fa-api:latest` — не 4 параллельных `podman build` одного Dockerfile (Prepare images failed)
+- HEALTHCHECK убран из `api/Dockerfile` (OCI его игнорирует); проверка — в compose
+- `install`/`update`: `compose build` api → radius → web по очереди, затем `up -d`
+
 ## 2026-08-21 (МСК) — install: pip podman-compose под sudo
 
 - EL9 `sudo` PATH без `/usr/local/bin`: движок видел `import podman_compose`, а `compose()` падал «podman-compose нет»

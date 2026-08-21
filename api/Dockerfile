@@ -11,6 +11,4 @@ COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
-HEALTHCHECK --interval=15s --timeout=5s --retries=5 \
-    CMD curl -fsS http://127.0.0.1:8000/health || exit 1
 CMD ["./entrypoint.sh"]

@@ -164,7 +164,8 @@ podman exec 2fa_api_1 alembic upgrade head
 curl -sk https://127.0.0.1/health
 ```
 
-**Грабля:** `up --force-recreate api` часто **не** подхватывает новый образ → 404. Нужен полный `down` → `up -d`.
+**Грабля:** `up --force-recreate api` часто **не** подхватывает новый образ → 404. Нужен полный `down` → `up -d`.  
+Образы: `api`/`worker`/`worker-otp`/`beat` — один `localhost/mk2fa-api:latest` (сборка только у сервиса `api`).
 
 `PYTHONPATH=/usr/local/lib/python3.9/site-packages` — для `podman-compose` на CentOS Stream 9 lab.  
 На EL9 `sudo` часто без `/usr/local/bin`: `install.sh` сам ищет pip-бинарь или `python3 -m podman_compose`.

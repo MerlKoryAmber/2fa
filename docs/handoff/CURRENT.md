@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~14:55 МСК |
-| Ветка / коммит | `main` @ `2e91e7d` (install PATH + qualified FROM) |
+| Дата | 2026-08-21 ~15:20 МСК |
+| Ветка / коммит | локально (один образ api) поверх `2e91e7d` / tip `db58a90` |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -15,7 +15,7 @@
 ## Что сделано
 
 - Own → **MK 2FA**; F5-вкладки; **worker-otp**; UI Interros
-- **install:** pip `podman-compose` под sudo на EL9 (бинарь `/usr/local/bin`); qualified `FROM` python
+- **install:** pip `podman-compose` под sudo; `FROM docker.io/...`; **один** образ `localhost/mk2fa-api` на api+workers+beat
 
 ## Хвосты
 

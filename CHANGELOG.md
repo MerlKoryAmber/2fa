@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS: Message-Authenticator в ответе
+
+- Access-Accept/Reject/Challenge всегда с attr 80 — иначе UAG/NAS тихо дропает пакет, VPN «без ответа» при живом OTP_FAIL в аудите
+
 ## 2026-08-21 (МСК) — RADIUS http_500: забытый import ACL
 
 - `RadiusConfig.allowed_rules` → `NameError: parse_allowed_clients` → gateway писал «ошибка API (500)»

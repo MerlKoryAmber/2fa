@@ -8,9 +8,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~20:15 МСК |
-| GitHub | `main` @ **`dcc36e5`** (fix ACL http_500) |
-| Фича HEAD кода | fix RADIUS http_500 + otp_only |
+| Дата | 2026-08-21 ~20:25 МСК |
+| GitHub | `main` — Message-Authenticator в RADIUS-ответах (после push) |
+| Фича HEAD кода | RADIUS MA + ACL fix + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
@@ -61,7 +61,7 @@ sudo ./scripts/update.sh
 
 ## Хвосты
 
-- **Сервер `/opt/2fa`:** `update.sh` этого фикса → VPN `U1807` (ожидание: Accept `otp_only`, не http_500)
+- **Сервер `/opt/2fa`:** после push MA — `update.sh` → VPN: неверный OTP должен дать **явный отказ**, не зависание; верный → Accept `otp_only`
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
 - `PLAN_MK_2FA_SYSTEM_RU.md` §1 всё ещё канон challenge; otp_only — ADR 0001

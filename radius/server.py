@@ -183,17 +183,27 @@ def handle(data: bytes, addr) -> bytes | None:
     reply = pkt.CreateReply()
     decision = result.get("decision")
     msg = result.get("reply_message") or ""
-    if msg:
-        reply.AddAttribute("Reply-Message", msg.encode())
     if decision == "accept":
         reply.code = AccessAccept
     elif decision == "challenge":
         reply.code = AccessChallenge
-        reply.AddAttribute("State", result["state"].encode())
+        state_out = result.get("state") or ""
+        reply.AddAttribute("State", state_out.encode() if isinstance(state_out, str) else state_out)
     else:
         reply.code = AccessReject
-    log.info("user=%s from=%s decision=%s", username, addr[0], decision)
-    return reply.ReplyPacket()
+    if msg:
+        try:
+            reply.AddAttribute("Reply-Message", msg if isinstance(msg, str) else msg.decode("utf-8", "replace"))
+        except Exception:
+            log.exception("Reply-Message skip")
+    # UAG/checkpoint часто дропают ответ без MA → VPN «висит», хотя в аудите уже OTP_FAIL/Accept
+    try:
+        reply.add_message_authenticator()
+    except Exception:
+        log.exception("Message-Authenticator skip")
+    out = reply.ReplyPacket()
+    log.info("user=%s from=%s decision=%s reply_len=%s", username, addr[0], decision, len(out))
+    return out
 
 
 def main():

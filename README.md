@@ -166,7 +166,8 @@ curl -sk https://127.0.0.1/health
 
 **Грабля:** `up --force-recreate api` часто **не** подхватывает новый образ → 404. Нужен полный `down` → `up -d`.
 
-`PYTHONPATH=/usr/local/lib/python3.9/site-packages` — для `podman-compose` на CentOS Stream 9 lab.
+`PYTHONPATH=/usr/local/lib/python3.9/site-packages` — для `podman-compose` на CentOS Stream 9 lab.  
+На EL9 `sudo` часто без `/usr/local/bin`: `install.sh` сам ищет pip-бинарь или `python3 -m podman_compose`.
 
 ## Безопасность
 

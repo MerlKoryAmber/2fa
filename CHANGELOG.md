@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — install: pip podman-compose под sudo
+
+- EL9 `sudo` PATH без `/usr/local/bin`: движок видел `import podman_compose`, а `compose()` падал «podman-compose нет»
+- Скрипт ищет бинарь в `/usr/local/bin` или `python3 -m podman_compose`; PYTHONUNBUFFERED на сборке
+- `FROM docker.io/library/python:3.12-slim` — без short-name prompt Podman на свежем EL9
+
 ## 2026-08-21 (МСК) — панель: вкладка после F5 + меню
 
 - Вкладка и settings-subtab в hash/`sessionStorage`; критичный CSS `.hidden` + `data-tab` — без мелькания чужих секций

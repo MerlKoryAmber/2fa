@@ -7,6 +7,10 @@ set -euo pipefail
 _MK2FA_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${_MK2FA_LIB_DIR}/../.." && pwd)"
 
+# sudo на EL/CentOS: secure_path без /usr/local/bin — pip ставит podman-compose туда.
+export PATH="/usr/local/bin:/usr/local/sbin:${PATH}"
+export PYTHONUNBUFFERED=1
+
 # shellcheck disable=SC2034
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$REPO_ROOT" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')}"
 if [[ -z "$COMPOSE_PROJECT_NAME" ]]; then
@@ -94,11 +98,13 @@ install_host_packages() {
 
   have_cmd podman || have_cmd docker || die "нет podman и docker после установки пакетов"
 
-  # compose: пакет или pip
-  if have_cmd podman && ! have_cmd podman-compose; then
+  # compose: пакет или pip (бинарь часто в /usr/local/bin — PATH уже поправлен выше)
+  if have_cmd podman && ! podman_compose_ok; then
     log "ставим podman-compose через pip3"
     pip3 install --upgrade podman-compose \
       || die "pip3 install podman-compose не удался"
+    hash -r 2>/dev/null || true
+    podman_compose_ok || die "pip поставил модуль, но запустить podman-compose нельзя (проверь /usr/local/bin в PATH)"
   fi
 
   # Docker fallback, если podman так и не появился
@@ -110,8 +116,35 @@ install_host_packages() {
   fi
 }
 
+_pc_pythonpath() {
+  printf '%s' "${PYTHONPATH:-}${PYTHONPATH:+:}/usr/local/lib/python3.9/site-packages:/usr/local/lib/python3.11/site-packages:/usr/local/lib/python3.12/site-packages"
+}
+
+# pip-модуль и/или бинарь (sudo PATH часто без /usr/local/bin).
+podman_compose_ok() {
+  have_cmd podman-compose && return 0
+  [[ -x /usr/local/bin/podman-compose ]] && return 0
+  [[ -x /usr/bin/podman-compose ]] && return 0
+  python3 -c "import podman_compose" 2>/dev/null && return 0
+  return 1
+}
+
+run_podman_compose() {
+  local pc=""
+  pc="$(command -v podman-compose 2>/dev/null || true)"
+  [[ -z "$pc" && -x /usr/local/bin/podman-compose ]] && pc=/usr/local/bin/podman-compose
+  [[ -z "$pc" && -x /usr/bin/podman-compose ]] && pc=/usr/bin/podman-compose
+  if [[ -n "$pc" ]]; then
+    env PYTHONPATH="$(_pc_pythonpath)" PYTHONUNBUFFERED=1 "$pc" "$@"
+  elif python3 -c "import podman_compose" 2>/dev/null; then
+    env PYTHONPATH="$(_pc_pythonpath)" PYTHONUNBUFFERED=1 python3 -m podman_compose "$@"
+  else
+    die "podman есть, podman-compose нет (ни бинаря, ни python3 -m). pip3 install podman-compose"
+  fi
+}
+
 detect_engine() {
-  if have_cmd podman && (have_cmd podman-compose || python3 -c "import podman_compose" 2>/dev/null || have_cmd docker-compose); then
+  if have_cmd podman && podman_compose_ok; then
     echo podman
   elif have_cmd docker && docker compose version >/dev/null 2>&1; then
     echo docker
@@ -122,20 +155,14 @@ detect_engine() {
   fi
 }
 
-# Запуск compose: учитываем PYTHONPATH для pip-установки на EL.
+# Запуск compose: pip на EL → /usr/local/bin + PYTHONPATH.
 compose() {
   local engine
   engine="$(detect_engine)"
   cd "$REPO_ROOT"
   case "$engine" in
     podman)
-      if have_cmd podman-compose; then
-        # CentOS/RHEL lab: pip в /usr/local
-        env PYTHONPATH="${PYTHONPATH:-}${PYTHONPATH:+:}/usr/local/lib/python3.9/site-packages:/usr/local/lib/python3.11/site-packages:/usr/local/lib/python3.12/site-packages" \
-          podman-compose "$@"
-      else
-        die "podman есть, podman-compose нет — перезапустите install"
-      fi
+      run_podman_compose "$@"
       ;;
     docker)
       docker compose "$@"
@@ -244,8 +271,9 @@ compose_down() {
 
 compose_up_build() {
   # Полный down+up — иначе на lab новый образ api часто не подхватывается
-  log "podman/docker compose: build + up"
+  log "podman/docker compose: down, затем build + up (первая сборка тянет docker.io, минуты, вывод без буфера)"
   compose down || true
+  log "podman/docker compose: up --build -d"
   compose up --build -d
 }
 

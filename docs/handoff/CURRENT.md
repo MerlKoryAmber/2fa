@@ -12,7 +12,7 @@
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
-| LinOTP → тест | импорт утром 21.08 |
+| LinOTP → тест | **все пользователи/токены импортированы** (подтверждено Merl 21.08 ~21:13 МСК) |
 | Вход панели | `admin` / `admin`, форма пустая |
 | Push | только по команде Merl; **не** `git add .` |
 
@@ -20,7 +20,7 @@
 
 Цепочка: **HCPGW-CL** (`172.22.1.167`) → **NPS proxy** (`172.22.10.231`, policy `u1807`) → **MK 2FA** (`172.22.10.140`).
 
-- Политика **otp_only**; пользователь **U1807** + TOTP из LinOTP
+- Политика **otp_only**; пользователь **U1807** + TOTP из LinOTP (пилот); **полный импорт LinOTP — да**
 - **Верный OTP** → пускает (Accept)
 - **Неверный OTP** → отбивает (Reject), без NPS **117**
 
@@ -44,7 +44,8 @@
 
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- Опционально: конфиг LinOTP RADIUS для сверки (Merl предлагал)
+- Cutover: `allowed_clients` NAS, чеклист вывода LinOTP из боя (когда скажет Merl)
+- Опционально: конфиг LinOTP RADIUS для сверки
 
 ## Не делать без команды Merl
 

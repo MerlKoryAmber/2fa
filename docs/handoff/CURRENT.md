@@ -44,8 +44,10 @@
 
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- Cutover: `allowed_clients` NAS, чеклист вывода LinOTP из боя (когда скажет Merl)
+- Cutover: пилоты ещё юзеров / чеклист вывода LinOTP из боя (когда скажет Merl)
 - Опционально: конфиг LinOTP RADIUS для сверки
+
+**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.
 
 ## Не делать без команды Merl
 

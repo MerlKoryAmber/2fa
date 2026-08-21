@@ -24,14 +24,15 @@ python3 migration/export_seeds.py
 
 ## Тест → БД
 
-Скопируй репо (или хотя бы `migration/`) + `seeds_export.csv` на тест:
+Не `python3 import_seeds.py` на хосте: нет `cryptography`/`sqlalchemy`, а `DATABASE_URL` указывает на хост `db` (только сеть compose). Postgres с хоста не опубликован.
 
 ```bash
-cd /path/to/2fa
-set -a && source .env && set +a
-python3 migration/import_seeds.py /path/to/seeds_export.csv          # dry-run
-python3 migration/import_seeds.py /path/to/seeds_export.csv --apply
+# из корня репо, контейнер api уже up
+sudo ./scripts/import_linotp_seeds.sh /path/to/seeds_export.csv          # dry-run
+sudo ./scripts/import_linotp_seeds.sh /path/to/seeds_export.csv --apply
 ```
+
+Скрипт копирует CSV в контейнер api и гоняет `import_seeds.py` там (пакеты из образа).
 
 Фильтр: только active TOTP + GUID из `guid_map.csv`.  
 Дубль TOTP на один sam → берётся самый новый.

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — импорт LinOTP через контейнер api
+
+- `scripts/import_linotp_seeds.sh`: CSV в контейнер api (cryptography уже в образе)
+- С хоста `python3 import_seeds.py` не работает: нет модуля и БД только как `db` в сети compose
+
 ## 2026-08-21 (МСК) — вход сразу после install: admin / admin
 
 - Дефолт панели: логин `admin`, пароль `admin` (не случайный, не `changeme`)

@@ -11,10 +11,10 @@
   DATABASE_URL=... APP_ENCRYPTION_KEY=... \\
     python3 migration/import_seeds.py /path/to/seeds_export.csv --apply
 
-Либо из каталога с .env MK 2FA (подхватит те же переменные):
+На хосте EL9 пакеты python обычно нет — гонять через контейнер api:
 
-  set -a && source .env && set +a
-  python3 migration/import_seeds.py seeds_export.csv --apply
+  sudo ./scripts/import_linotp_seeds.sh /path/to/seeds_export.csv
+  sudo ./scripts/import_linotp_seeds.sh /path/to/seeds_export.csv --apply
 
 Политика по умолчанию:
   - match: ad_username == sam_account_name (case-insensitive)

@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~15:42 МСК |
-| Ветка / коммит | `main` @ `b7c0d13` (вход admin/admin) |
+| Дата | 2026-08-21 ~15:58 МСК |
+| Ветка / коммит | локально (import через api) поверх `a523f78` |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -22,7 +22,7 @@
 ## Хвосты
 
 - Повторить `sudo ./scripts/install.sh` на свежем сервере (после этих правок)
-- Полный `guid_map.csv` → export → import на тест
+- Полный `guid_map.csv` → export → import на тест (`scripts/import_linotp_seeds.sh`, не python на хосте)
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал) — не делали
 

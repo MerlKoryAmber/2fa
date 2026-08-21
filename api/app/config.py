@@ -1,8 +1,21 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # По умолчанию dotenv ПОСЛЕ env и перебивает compose. Тогда printenv в api
+    # совпадает с radius, а settings.internal_api_token — нет → 403 на /internal/*.
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return init_settings, file_secret_settings, dotenv_settings, env_settings
 
     database_url: str = "postgresql+psycopg2://mfa:mfa@db:5432/mfa"
     redis_url: str = "redis://redis:6379/0"

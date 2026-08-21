@@ -28,3 +28,13 @@ def test_health(client):
     assert body["ok"] is True
     assert body["db"] is True
     assert body["redis"] is True
+
+
+def test_internal_radius_config_403_without_token(client):
+    r = client.get("/internal/radius/config")
+    assert r.status_code == 403
+
+
+def test_internal_radius_config_403_wrong_token(client):
+    r = client.get("/internal/radius/config", headers={"X-Internal-Token": "nope"})
+    assert r.status_code == 403

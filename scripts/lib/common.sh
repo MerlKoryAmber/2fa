@@ -155,11 +155,36 @@ detect_engine() {
   fi
 }
 
+# Ключи из .env в окружение процесса (sudo env_reset иначе пустой ${VAR} в yaml).
+export_repo_env() {
+  local envf="${REPO_ROOT}/.env" line key val
+  [[ -f "$envf" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    if [[ ${#val} -ge 2 ]]; then
+      if [[ "${val:0:1}" == '"' && "${val: -1}" == '"' ]]; then
+        val="${val:1:${#val}-2}"
+      elif [[ "${val:0:1}" == "'" && "${val: -1}" == "'" ]]; then
+        val="${val:1:${#val}-2}"
+      fi
+    fi
+    export "${key}=${val}"
+  done < "$envf"
+}
+
 # Запуск compose: pip на EL → /usr/local/bin + PYTHONPATH.
 compose() {
   local engine
   engine="$(detect_engine)"
   cd "$REPO_ROOT"
+  export_repo_env
   case "$engine" in
     podman)
       run_podman_compose "$@"
@@ -313,18 +338,34 @@ smoke_internal_radius() {
   fi
   log "smoke: RADIUS → API /internal/radius/config ($rad)"
   code="$(ctr_exec "$rad" python3 -c "
-import os, sys
+import os
 import httpx
-t = (os.environ.get('INTERNAL_API_TOKEN') or '').strip()
+t = (os.environ.get('INTERNAL_API_TOKEN') or '').strip().strip(chr(34)).strip(chr(39))
 r = httpx.get('http://api:8000/internal/radius/config', headers={'X-Internal-Token': t}, timeout=10)
 print(r.status_code)
-sys.exit(0)
-" 2>/dev/null | tail -1 || true)"
+" | tail -1 || true)"
   if [[ "$code" == "200" ]]; then
     log "smoke RADIUS→API: 200"
     return 0
   fi
-  die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200). Не допиливать руками: git pull + sudo ./scripts/update.sh. Лог: podman logs $rad"
+  local api
+  api="$(find_compose_ctr api)"
+  if [[ -n "$api" ]]; then
+    log "smoke fail HTTP ${code:-нет}: env vs pydantic (длины/sha256, не секрет)"
+    ctr_exec "$api" python -c "
+import os, hashlib
+from app.config import settings
+a = os.environ.get('INTERNAL_API_TOKEN') or ''
+b = settings.internal_api_token or ''
+def h(x):
+    x = (x or '').strip().strip(chr(34)).strip(chr(39))
+    return '%s sha=%s' % (len(x), hashlib.sha256(x.encode()).hexdigest()[:12])
+print('env', h(a))
+print('settings', h(b))
+print('equal', h(a) == h(b))
+" || true
+  fi
+  die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200). git pull + sudo ./scripts/update.sh"
 }
 
 wait_health() {

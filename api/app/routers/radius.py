@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,10 +22,17 @@ class RadiusIn(BaseModel):
     nas_ip: str | None = None
 
 
-def require_internal(x_internal_token: str | None = Header(default=None)):
-    got = (x_internal_token or "").strip()
-    exp = (settings.internal_api_token or "").strip()
-    if not exp or got != exp:
+def _clean_token(raw: str | None) -> str:
+    return (raw or "").strip().strip('"').strip("'")
+
+
+def require_internal(
+    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
+):
+    # os.environ — то же, что у radius; settings мог взять другой .env (dotenv > env).
+    got = _clean_token(x_internal_token)
+    exp = _clean_token(os.environ.get("INTERNAL_API_TOKEN") or settings.internal_api_token)
+    if not exp or not secrets.compare_digest(got, exp):
         raise HTTPException(403, "Forbidden")
 
 

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS 403: pydantic dotenv не перебивает compose
+
+- `INTERNAL_API_TOKEN` для `/internal/*` берётся из `os.environ` (как у radius)
+- pydantic-settings: **env выше dotenv** — иначе printenv совпадает, settings нет, smoke 403
+- `compose()` экспортирует `.env` до interpolate (sudo env_reset)
+
 ## 2026-08-21 (МСК) — install/update без ручной добивки RADIUS
 
 - `install.sh` / `update.sh`: CRLF в `.env`, firewall 1812/udp, smoke `GET /internal/radius/config` из контейнера radius (не 403)

@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~21:38 МСК |
-| GitHub | `main` — fix DOMAIN\\user bind (после push) |
+| GitHub | `main` @ **`8d3b9c9`** (fix DOMAIN\user bind) |
 | Фича HEAD кода | otp_only стенд + fix normalize_bind_user |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

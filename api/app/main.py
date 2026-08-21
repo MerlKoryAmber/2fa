@@ -64,10 +64,14 @@ def seed():
             )
         policy = db.query(Policy).first()
         if not policy:
-            db.add(Policy())
+            db.add(Policy(name="Default", scope="*"))
         else:
+            if (policy.name or "").strip() == "default":
+                policy.name = "Default"
             if "TELEGRAM" not in policy.allowed_second_factors:
                 policy.allowed_second_factors = "TOTP,EXPRESSMS,TELEGRAM"
+        for row in db.query(Policy).filter(Policy.name == "default").all():
+            row.name = "Default"
         demo = db.query(User).filter(User.ad_username == settings.demo_username).first()
         if not demo:
             demo = User(
@@ -102,9 +106,25 @@ def backfill_token_serials():
         db.close()
 
 
+def rename_policy_default_label():
+    """Подпись Default — только UI; выбор политики по scope не зависит от name."""
+    db = SessionLocal()
+    try:
+        changed = 0
+        for row in db.query(Policy).filter(Policy.name == "default").all():
+            row.name = "Default"
+            changed += 1
+        if changed:
+            db.commit()
+            log.info("renamed policy label default→Default: %s", changed)
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def on_startup():
     backfill_token_serials()
+    rename_policy_default_label()
     if settings.seed_on_startup:
         seed()
     db = SessionLocal()

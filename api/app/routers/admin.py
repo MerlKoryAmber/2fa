@@ -10,12 +10,14 @@ from app.db import get_db
 from app.models import Admin, AuditEvent, Policy, User
 from app.otp import encrypt_totp_secret, generate_totp_secret, totp_qr_png_bytes, totp_uri, verify_totp
 from app.radius_flow import VALID_METHODS, default_policy
+from app.policy_resolve import policy_public, resolve_policy
 from app.routers.auth import current_admin, require_roles
 from app.rbac import ROLE_ADMIN, ROLE_AUDITOR, ROLE_OPERATOR
+from app.dashboard import build_dashboard
 from app.enroll_service import create_invite, ensure_totp_pending, invite_ttl
 from app.ldap_sync import run_ldap_sync
 from app.mail_service import send_invite_email
-from app.settings_service import app_public_base_url, ldap_config
+from app.settings_service import app_public_base_url
 from app.token_service import ensure_token_serial, find_by_serial, list_tokens, revoke_token, set_token_active
 from app.user_service import list_users as filter_users
 
@@ -29,12 +31,29 @@ class UserPatch(BaseModel):
 
 
 class PolicyPatch(BaseModel):
+    name: str | None = None
+    scope: str | None = None
     require_2fa: bool | None = None
     allowed_second_factors: str | None = None
     totp_window_steps: int | None = None
     otp_ttl_seconds: int | None = None
     max_otp_attempts_per_challenge: int | None = None
     challenge_ttl_seconds: int | None = None
+    enroll_invite_ttl_seconds: int | None = None
+    radius_scheme_preference: str | None = None
+
+
+class PolicyCreate(BaseModel):
+    name: str = "Новая"
+    scope: str = "0.0.0.0/32"
+    copy_from_default: bool = True
+    require_2fa: bool | None = None
+    allowed_second_factors: str | None = None
+    totp_window_steps: int | None = None
+    otp_ttl_seconds: int | None = None
+    max_otp_attempts_per_challenge: int | None = None
+    challenge_ttl_seconds: int | None = None
+    enroll_invite_ttl_seconds: int | None = None
     radius_scheme_preference: str | None = None
 
 
@@ -216,20 +235,55 @@ def confirm_totp(
 
 @router.get("/policies")
 def get_policies(db: Session = Depends(get_db), _: Admin = Depends(require_roles(ROLE_ADMIN))):
-    p = default_policy(db)
+    rows = db.query(Policy).order_by(Policy.id.asc()).all()
+    if not rows:
+        rows = [default_policy(db)]
+    default = default_policy(db)
     return {
-        "id": p.id,
-        "name": p.name,
-        "scope": p.scope,
-        "require_2fa": p.require_2fa,
-        "allowed_second_factors": p.allowed_second_factors,
-        "totp_window_steps": p.totp_window_steps,
-        "otp_ttl_seconds": p.otp_ttl_seconds,
-        "max_otp_attempts_per_challenge": p.max_otp_attempts_per_challenge,
-        "challenge_ttl_seconds": p.challenge_ttl_seconds,
-        "enroll_invite_ttl_seconds": p.enroll_invite_ttl_seconds,
-        "radius_scheme_preference": p.radius_scheme_preference,
+        "items": [policy_public(p) for p in rows],
+        "default_id": default.id,
     }
+
+
+@router.post("/policies")
+def create_policy(
+    body: PolicyCreate,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
+    scope = (body.scope or "").strip() or "0.0.0.0/32"
+    if scope == "*":
+        raise HTTPException(400, "Новая политика не может иметь область «все клиенты» (*). Измените существующую или укажите IP/CIDR.")
+    base = default_policy(db) if body.copy_from_default else None
+    row = Policy(
+        name=(body.name or "Новая").strip() or "Новая",
+        scope=scope,
+        require_2fa=body.require_2fa if body.require_2fa is not None else (base.require_2fa if base else True),
+        allowed_second_factors=body.allowed_second_factors
+        if body.allowed_second_factors is not None
+        else (base.allowed_second_factors if base else "TOTP,EXPRESSMS,TELEGRAM"),
+        totp_window_steps=body.totp_window_steps
+        if body.totp_window_steps is not None
+        else (base.totp_window_steps if base else 1),
+        otp_ttl_seconds=body.otp_ttl_seconds if body.otp_ttl_seconds is not None else (base.otp_ttl_seconds if base else 60),
+        max_otp_attempts_per_challenge=body.max_otp_attempts_per_challenge
+        if body.max_otp_attempts_per_challenge is not None
+        else (base.max_otp_attempts_per_challenge if base else 5),
+        challenge_ttl_seconds=body.challenge_ttl_seconds
+        if body.challenge_ttl_seconds is not None
+        else (base.challenge_ttl_seconds if base else 120),
+        enroll_invite_ttl_seconds=body.enroll_invite_ttl_seconds
+        if body.enroll_invite_ttl_seconds is not None
+        else (base.enroll_invite_ttl_seconds if base else 86400),
+        radius_scheme_preference=body.radius_scheme_preference
+        if body.radius_scheme_preference is not None
+        else (base.radius_scheme_preference if base else "challenge"),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    audit(db, "POLICY_CREATE", username=admin.username, policy_id=row.id, scope=row.scope)
+    return policy_public(row)
 
 
 @router.patch("/policies/{policy_id}")
@@ -237,15 +291,47 @@ def patch_policy(
     policy_id: int,
     body: PolicyPatch,
     db: Session = Depends(get_db),
-    _: Admin = Depends(require_roles(ROLE_ADMIN)),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN)),
 ):
     p = db.query(Policy).filter(Policy.id == policy_id).first()
     if not p:
         raise HTTPException(404, "Policy not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if "scope" in data and data["scope"] is not None:
+        data["scope"] = str(data["scope"]).strip() or "*"
+    for field, value in data.items():
         setattr(p, field, value)
     db.commit()
+    audit(db, "POLICY_PATCH", username=admin.username, policy_id=p.id, keys=list(data.keys()))
+    return {"ok": True, "policy": policy_public(p)}
+
+
+@router.delete("/policies/{policy_id}")
+def delete_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
+    rows = db.query(Policy).order_by(Policy.id.asc()).all()
+    if len(rows) <= 1:
+        raise HTTPException(400, "Нельзя удалить единственную политику")
+    p = next((r for r in rows if r.id == policy_id), None)
+    if not p:
+        raise HTTPException(404, "Policy not found")
+    db.delete(p)
+    db.commit()
+    audit(db, "POLICY_DELETE", username=admin.username, policy_id=policy_id)
     return {"ok": True}
+
+
+@router.get("/policies/resolve-preview")
+def policies_resolve_preview(
+    nas_ip: str,
+    db: Session = Depends(get_db),
+    _: Admin = Depends(require_roles(ROLE_ADMIN)),
+):
+    p = resolve_policy(db, nas_ip)
+    return {"nas_ip": nas_ip, "policy": policy_public(p)}
 
 
 @router.get("/audit")
@@ -316,6 +402,4 @@ def patch_token(
 
 @router.get("/stats")
 def stats(db: Session = Depends(get_db), _: Admin = Depends(require_roles(ROLE_ADMIN, ROLE_OPERATOR, ROLE_AUDITOR))):
-    users = db.query(User).count()
-    enrolled = db.query(User).filter(User.otp_method != "NONE").count()
-    return {"users": users, "enrolled": enrolled, "ldap_configured": bool(ldap_config(db).servers)}
+    return build_dashboard(db)

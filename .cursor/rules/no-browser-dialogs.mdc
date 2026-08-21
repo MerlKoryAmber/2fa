@@ -1,0 +1,21 @@
+---
+description: Запрет браузерных alert/confirm/prompt в UI панели
+alwaysApply: true
+---
+
+# Без браузерных диалогов
+
+В админке / enroll **нельзя** использовать:
+
+- `alert(...)`
+- `confirm(...)`
+- `prompt(...)`
+- `window.alert` / `window.confirm` / `window.prompt`
+
+Вместо этого:
+
+- ошибки и успех — текст в форме (`#…-err`, `#…-out`, `.field-hint`, flash)
+- опасные действия — модалка `#confirm-overlay` / `confirmDialog({ title, message, … })`
+- ввод (IP, имя, пароль) — поля в панели или модалке, не `prompt`
+
+Исключений нет: «быстро через prompt» — тоже запрещено.

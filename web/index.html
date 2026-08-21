@@ -102,7 +102,29 @@
       </header>
       <main class="content">
         <section id="dash">
-          <div class="cards" id="stats"></div>
+          <div class="dash-stack">
+            <div class="panel dash-block">
+              <h2 class="dash-heading">Статус</h2>
+              <div class="dash-status" id="dash-status"></div>
+            </div>
+            <div class="panel dash-block">
+              <h2 class="dash-heading">Пользователи</h2>
+              <div class="cards cards-4" id="dash-people"></div>
+            </div>
+            <div class="panel dash-block">
+              <h2 class="dash-heading">RADIUS за последние 24 часа</h2>
+              <div class="cards cards-4" id="dash-radius"></div>
+            </div>
+            <div class="panel dash-block table-panel">
+              <h2 class="dash-heading">Последние события</h2>
+              <table class="data-table">
+                <thead>
+                  <tr><th>Время</th><th>Событие</th><th>Пользователь</th><th>Подробности</th></tr>
+                </thead>
+                <tbody id="dash-recent"></tbody>
+              </table>
+            </div>
+          </div>
         </section>
         <section id="tokens" class="hidden">
           <div class="panel">
@@ -197,8 +219,30 @@
           <div id="issue-modal" class="hidden panel"></div>
         </section>
         <section id="policy" class="hidden">
-          <div class="settings-wrap">
-            <form id="policy-form" class="panel settings-stack"></form>
+          <div class="settings-wrap policy-page">
+            <p class="field-hint">RADIUS выбирает политику по IP клиента (UDP peer). Самое узкое совпадение: точный IP сильнее CIDR сильнее «все». Enroll и TTL приглашений — у политики с областью «все клиенты» (*).</p>
+            <div class="policy-tabs-row">
+              <nav class="settings-tabs" id="policy-tabs" aria-label="Политики"></nav>
+              <button type="button" id="policy-add" class="btn-sm policy-add-tab">+ Создать политику</button>
+            </div>
+            <p id="policy-flash" class="flash-msg flash-ok hidden" role="status"></p>
+            <div class="panel settings-stack policy-editor">
+              <div class="policy-editor-head">
+                <h2 class="policy-editor-title" id="policy-editor-title">Настройки политики</h2>
+                <button type="button" id="policy-delete" class="btn-sm ghost">Удалить эту политику</button>
+              </div>
+              <form id="policy-form" class="settings-stack"></form>
+            </div>
+            <div class="panel settings-stack policy-aside">
+              <h2 class="policy-aside-title">Проверка выбора</h2>
+              <p class="field-hint">Какая политика сработает для IP — без RADIUS и без сохранения.</p>
+              <div class="field">
+                <label for="policy-preview-ip">IP RADIUS-клиента</label>
+                <input id="policy-preview-ip" type="text" value="" placeholder="напр. 10.0.0.5" autocomplete="off" />
+              </div>
+              <button type="button" id="policy-preview-btn" class="btn-sm ghost">Какая политика</button>
+              <pre id="policy-preview-out" class="test-log muted">Введите IP и нажмите «Какая политика».</pre>
+            </div>
           </div>
         </section>
         <section id="audit" class="hidden">

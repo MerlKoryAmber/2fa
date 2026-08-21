@@ -136,6 +136,7 @@ baseline → dry-run → регресс → apply с бэкапом → пров
 - Свободный ввод — только где значение действительно произвольное (хост, порт, email, секрет, TTL в секундах).
 - Новое поле в API → в UI сразу человекочитаемая форма; snake_case и enum-строки в интерфейсе не показывать.
 - Паттерны форм — `docs/design/DESIGN.md` (`field`, `field-check`, `settings-section`).
+- **Без браузерных `alert` / `confirm` / `prompt`** — ошибки/успех в UI; опасные действия — `confirmDialog`; ввод — поля формы. Правило: `.cursor/rules/no-browser-dialogs.mdc`.
 
 ---
 
@@ -165,7 +166,7 @@ baseline → dry-run → регресс → apply с бэкапом → пров
 | Секреты | `.env`, `APP_ENCRYPTION_KEY`, JWT, LDAP bind, ExpressMS token, RADIUS shared secret, TOTP secrets — только env/secrets, не в логах |
 | **2FA каналы** | TOTP, ExpressMS (dry-run), **Telegram (dry-run, enroll chat_id вручную)** |
 | **Настройки** | LDAP/RADIUS/ExpressMS/Telegram — **панель + `.env` fallback** |
-| **UI/UX** | §21: русские подписи, `.field-hint`, checkbox/radio/select вместо «птичьего языка» |
+| **UI/UX** | §21: русские подписи, `.field-hint`, checkbox/radio/select; **без** `alert`/`confirm`/`prompt` |
 | ADR | `docs/adr/README.md` — реестр архитектурных решений |
 | Handoff / отчёты | `docs/handoff/CURRENT.md`, `docs/agent_reports/<задача>/REPORT.md` |
 | CHANGELOG | `CHANGELOG.md` — перед каждым смысловым push |

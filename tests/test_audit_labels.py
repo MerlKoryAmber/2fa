@@ -8,8 +8,8 @@ def test_audit_event_label():
 
 
 def test_format_audit_meta_nas():
-    text = format_audit_meta({"nas_ip": "172.22.10.231", "reason": "allowlist"})
-    assert "NAS: 172.22.10.231" in text
+    text = format_audit_meta({"nas_ip": "203.0.113.10", "reason": "allowlist"})
+    assert "NAS: 203.0.113.10" in text
     assert "IP NAS нет в списке" in text
 
 

@@ -50,7 +50,7 @@ class Policy(Base):
     __tablename__ = "policies"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(128), default="default")
+    name: Mapped[str] = mapped_column(String(128), default="Default")
     scope: Mapped[str] = mapped_column(String(256), default="*")
     require_2fa: Mapped[bool] = mapped_column(Boolean, default=True)
     allowed_second_factors: Mapped[str] = mapped_column(String(128), default="TOTP,EXPRESSMS,TELEGRAM")

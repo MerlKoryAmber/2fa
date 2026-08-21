@@ -6,9 +6,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~22:14 МСК |
-| GitHub | `main` @ **`1328158`** (SMTP тест + confirm пароля) |
-| Фича HEAD кода | otp_only + SMTP test-send + confirm смены пароля |
+| Дата | 2026-08-21 ~23:12 МСК |
+| GitHub | `main` — push policy+dashboard (см. SHA после push) |
+| Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
@@ -33,6 +33,9 @@
 - host-network radius; Proxy-State; MA first
 - **SMTP:** `POST /api/settings/test-smtp` + UI «Отправить тест» до save; STARTTLS при выкл. SSL
 - **UI:** смена пароля — повтор ввода + успех без браузерного `alert`
+- **Политика per client:** `Policy.scope` + `resolve_policy(nas_ip)` (ADR 0002); UI вкладки + черновик; Default
+- **Сводка MVP:** `/api/stats` → статус, 2FA, RADIUS 24ч, лента (новые сверху)
+- Правила: no-browser-dialogs, no-stand-ips-in-ui
 
 ## Ключевые файлы
 
@@ -42,6 +45,12 @@
 | Gateway UDP | `radius/server.py`, `radius/dictionary` |
 | Compose host net | `docker-compose.yml` (`radius.network_mode: host`) |
 | SMTP тест | `api/app/mail_service.py`, `api/app/routers/settings.py`, вкладка SMTP в `web/app.js` |
+| Policy per NAS | `api/app/policy_resolve.py`, ADR `docs/adr/0002-policy-per-radius-client.md` |
+| Сводка | `api/app/dashboard.py`, вкладка «Сводка» в `web/` |
+
+## Как проверять политику per client
+
+См. ADR 0002 §«Как проверять». Кратко: в панели **Политика → Проверка выбора** IP NPS — без смены конфига; VPN регресс Accept/Reject. Две политики — только когда нужен второй клиент.
 
 ## Хвосты
 

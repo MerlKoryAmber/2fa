@@ -285,6 +285,24 @@ function fmtTs(iso) {
   return iso.replace("T", " ").slice(0, 19);
 }
 
+function fmtTsMsk(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return fmtTs(iso);
+  return (
+    d.toLocaleString("ru-RU", {
+      timeZone: "Europe/Moscow",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " МСК"
+  );
+}
+
 function badgeClass(status) {
   if (status === "active") return "badge-active";
   if (status === "pending") return "badge-pending";
@@ -355,10 +373,70 @@ $("#token-filter-btn").addEventListener("click", () => loadTokens());
 
 async function loadDash() {
   const s = await api("/api/stats");
-  $("#stats").innerHTML = `
-    <div class="card"><b>${s.users}</b>пользователи</div>
-    <div class="card"><b>${s.enrolled}</b>с 2FA</div>
-    <div class="card"><b>${s.ldap_configured ? "AD" : "нет DC"}</b>LDAP</div>`;
+  const h = s.health || {};
+  const r = s.radius_24h || {};
+  const statusBits = [
+    ["База", h.db !== false],
+    ["Redis", !!h.redis],
+    ["LDAP", !!s.ldap_configured],
+    ["RADIUS (события за час)", (h.radius_events_1h || 0) > 0],
+  ];
+  $("#dash-status").innerHTML = statusBits
+    .map(([label, ok]) => {
+      const cls = ok ? "dash-pill ok" : "dash-pill bad";
+      const val =
+        label.startsWith("RADIUS")
+          ? `${h.radius_events_1h || 0}`
+          : ok
+            ? "ок"
+            : label === "LDAP"
+              ? "нет DC"
+              : "нет";
+      return `<span class="${cls}"><b>${esc(val)}</b>${esc(label)}</span>`;
+    })
+    .join("");
+
+  const people = [
+    [s.users ?? 0, "пользователи"],
+    [s.enrolled ?? 0, "с 2FA"],
+    [s.without_2fa ?? 0, "без 2FA"],
+    [s.totp_pending ?? 0, "TOTP ожидает confirm"],
+  ];
+  $("#dash-people").innerHTML = people
+    .map(([n, label]) => `<div class="card"><b>${esc(n)}</b>${esc(label)}</div>`)
+    .join("");
+
+  const radius = [
+    [r.accept ?? 0, "Accept"],
+    [r.reject ?? 0, "Reject"],
+    [r.otp_fail ?? 0, "OTP fail"],
+    [r.challenge ?? 0, "Challenge"],
+  ];
+  $("#dash-radius").innerHTML = radius
+    .map(([n, label]) => `<div class="card"><b>${esc(n)}</b>${esc(label)}</div>`)
+    .join("");
+
+  const recent = [...(s.recent || [])].sort((a, b) => {
+    const ta = Date.parse(a.timestamp || "") || 0;
+    const tb = Date.parse(b.timestamp || "") || 0;
+    if (tb !== ta) return tb - ta;
+    return (b.id || 0) - (a.id || 0);
+  });
+  const body = $("#dash-recent");
+  if (!recent.length) {
+    body.innerHTML = `<tr><td colspan="4" class="muted">Пока нет RADIUS/OTP событий</td></tr>`;
+  } else {
+    body.innerHTML = recent
+      .map(
+        (e) => `<tr>
+        <td>${esc(fmtTsMsk(e.timestamp))}</td>
+        <td>${esc(e.event_label || e.event_type)}</td>
+        <td>${esc(e.username || "—")}</td>
+        <td class="muted">${esc(e.meta_text || "—")}</td>
+      </tr>`
+      )
+      .join("");
+  }
 }
 
 function chk(v) {
@@ -1051,6 +1129,20 @@ async function wirePanelUsers() {
               .join("")}
           </tbody>
         </table>
+        <div id="pu-reset-box" class="settings-section hidden" style="margin-top:12px">
+          <p class="field-hint">Сброс пароля локальной учётки</p>
+          <input type="hidden" id="pu-reset-id" />
+          <div class="field">
+            <label for="pu-reset-pwd">Новый пароль</label>
+            <input id="pu-reset-pwd" type="password" autocomplete="new-password" minlength="8" />
+            <p class="field-hint">Минимум 8 символов.</p>
+          </div>
+          <div class="form-actions access-inline-actions">
+            <button type="button" id="pu-reset-save" class="btn-sm">Сохранить пароль</button>
+            <button type="button" id="pu-reset-cancel" class="btn-sm ghost">Отмена</button>
+            <span id="pu-reset-out" class="muted"></span>
+          </div>
+        </div>
         </div>`;
       listEl.querySelectorAll(".pu-toggle").forEach((b) =>
         b.addEventListener("click", async () => {
@@ -1063,16 +1155,36 @@ async function wirePanelUsers() {
         })
       );
       listEl.querySelectorAll(".pu-reset").forEach((b) =>
-        b.addEventListener("click", async () => {
-          const pwd = prompt("Новый пароль (мин. 8 символов):");
-          if (!pwd || pwd.length < 8) return;
-          await api("/api/panel-users/" + b.dataset.id, {
+        b.addEventListener("click", () => {
+          const box = $("#pu-reset-box");
+          $("#pu-reset-id").value = b.dataset.id;
+          $("#pu-reset-pwd").value = "";
+          $("#pu-reset-out").textContent = "";
+          box?.classList.remove("hidden");
+        })
+      );
+      $("#pu-reset-cancel")?.addEventListener("click", () => {
+        $("#pu-reset-box")?.classList.add("hidden");
+      });
+      $("#pu-reset-save")?.addEventListener("click", async () => {
+        const out = $("#pu-reset-out");
+        const pwd = $("#pu-reset-pwd")?.value || "";
+        const id = $("#pu-reset-id")?.value;
+        if (pwd.length < 8) {
+          if (out) out.textContent = "Минимум 8 символов";
+          return;
+        }
+        try {
+          await api("/api/panel-users/" + id, {
             method: "PATCH",
             body: JSON.stringify({ password: pwd }),
           });
-          alert("Пароль обновлён");
-        })
-      );
+          if (out) out.textContent = "Пароль обновлён";
+          $("#pu-reset-box")?.classList.add("hidden");
+        } catch (e) {
+          if (out) out.textContent = String(e.message || e);
+        }
+      });
     } catch (e) {
       listEl.textContent = String(e.message || e);
     }
@@ -1162,7 +1274,11 @@ async function loadUsers() {
           b.textContent = prev;
         }, 2000);
       } catch (e) {
-        alert(String(e.message || e));
+        const prev = b.textContent;
+        b.textContent = String(e.message || e).slice(0, 40);
+        setTimeout(() => {
+          b.textContent = prev;
+        }, 3000);
       }
     })
   );
@@ -1174,12 +1290,21 @@ async function loadUsers() {
         confirmLabel: "Отправить",
       });
       if (!ok) return;
-      const out = await api("/api/users/" + b.dataset.id + "/invite", { method: "POST", body: "{}" });
-      alert(
-        (out.mail && out.mail.dry_run ? "Письмо (dry-run, см. лог API/worker)" : "Приглашение отправлено на email") +
-          "\n" +
-          out.invite_url
-      );
+      try {
+        const out = await api("/api/users/" + b.dataset.id + "/invite", { method: "POST", body: "{}" });
+        const prev = b.textContent;
+        b.textContent = out.mail && out.mail.dry_run ? "Dry-run (лог)" : "Отправлено";
+        b.title = out.invite_url || "";
+        setTimeout(() => {
+          b.textContent = prev;
+        }, 2500);
+      } catch (e) {
+        const prev = b.textContent;
+        b.textContent = String(e.message || e).slice(0, 40);
+        setTimeout(() => {
+          b.textContent = prev;
+        }, 3000);
+      }
     })
   );
 }
@@ -1235,11 +1360,140 @@ $("#sync-ldap-btn").addEventListener("click", async () => {
   }
 });
 
-async function loadPolicy() {
-  const p = await api("/api/policies");
+let policyItems = [];
+let selectedPolicyId = null;
+let policyDraft = null;
+let policyUiWired = false;
+const POLICY_DRAFT_ID = "draft";
+
+function policyTabLabel(p) {
+  let name = (p.name || "политика").trim() || "политика";
+  if (name === "default") name = "Default";
+  const scope = (p.scope || "*").trim() || "*";
+  return { name, scope };
+}
+
+function showPolicyFlash(msg) {
+  const el = $("#policy-flash");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(showPolicyFlash._t);
+  showPolicyFlash._t = setTimeout(() => el.classList.add("hidden"), 5000);
+}
+
+function isPolicyDraft() {
+  return selectedPolicyId === POLICY_DRAFT_ID && policyDraft;
+}
+
+function openPolicyDraft() {
+  const base =
+    policyItems.find((p) => parseScopeHasStar(p.scope)) || policyItems[0] || {};
+  policyDraft = {
+    id: POLICY_DRAFT_ID,
+    name: "Новая",
+    scope: "",
+    require_2fa: base.require_2fa !== false,
+    allowed_second_factors: base.allowed_second_factors || "TOTP,EXPRESSMS,TELEGRAM",
+    totp_window_steps: base.totp_window_steps ?? 1,
+    otp_ttl_seconds: base.otp_ttl_seconds ?? 60,
+    max_otp_attempts_per_challenge: base.max_otp_attempts_per_challenge ?? 5,
+    challenge_ttl_seconds: base.challenge_ttl_seconds ?? 120,
+    enroll_invite_ttl_seconds: base.enroll_invite_ttl_seconds ?? 86400,
+    radius_scheme_preference: base.radius_scheme_preference || "challenge",
+  };
+  selectedPolicyId = POLICY_DRAFT_ID;
+  fillPolicyTabs();
+  renderPolicyForm(policyDraft);
+  showPolicyFlash("Новая вкладка — настройте и нажмите «Сохранить политику»");
+}
+
+function parseScopeHasStar(scope) {
+  return String(scope || "*")
+    .split(/[,;\n]/)
+    .map((s) => s.trim())
+    .includes("*");
+}
+
+function fillPolicyTabs() {
+  const nav = $("#policy-tabs");
+  if (!nav) return;
+  const tabs = [...policyItems];
+  if (policyDraft) tabs.push(policyDraft);
+  nav.innerHTML = tabs
+    .map((p) => {
+      const { name, scope } = policyTabLabel(p);
+      const id = p.id === POLICY_DRAFT_ID ? POLICY_DRAFT_ID : String(p.id);
+      const active = String(selectedPolicyId) === id ? "active" : "";
+      return `<button type="button" class="settings-tab policy-tab ${active}" data-policy-id="${esc(id)}">
+        ${esc(name)}<span class="policy-tab-scope">${esc(scope)}</span>
+      </button>`;
+    })
+    .join("");
+  nav.querySelectorAll(".policy-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.policyId;
+      if (id === POLICY_DRAFT_ID) {
+        selectedPolicyId = POLICY_DRAFT_ID;
+        fillPolicyTabs();
+        renderPolicyForm(policyDraft);
+        return;
+      }
+      selectedPolicyId = Number(id);
+      const p = policyItems.find((x) => x.id === selectedPolicyId);
+      fillPolicyTabs();
+      renderPolicyForm(p);
+    });
+  });
+}
+
+function collectPolicyBody(fd, allowedFactors) {
+  return {
+    name: (fd.get("name") || "Новая").trim() || "Новая",
+    scope: (fd.get("scope") || "*").trim() || "*",
+    require_2fa: fd.get("require_2fa") === "true",
+    allowed_second_factors: allowedFactors,
+    totp_window_steps: Number(fd.get("totp_window_steps")),
+    otp_ttl_seconds: Number(fd.get("otp_ttl_seconds")),
+    max_otp_attempts_per_challenge: Number(fd.get("max_otp_attempts_per_challenge")),
+    challenge_ttl_seconds: Number(fd.get("challenge_ttl_seconds")),
+    enroll_invite_ttl_seconds: Number(fd.get("enroll_invite_ttl_seconds")),
+    radius_scheme_preference: fd.get("radius_scheme_preference") || "challenge",
+  };
+}
+
+function renderPolicyForm(p) {
+  if (!p) return;
+  const draft = p.id === POLICY_DRAFT_ID;
+  const title = $("#policy-editor-title");
+  if (title) {
+    const { name, scope } = policyTabLabel(p);
+    title.textContent = draft ? `Новая политика (${scope || "…"})` : `Настройки: ${name} (${scope})`;
+  }
+  const delBtn = $("#policy-delete");
+  if (delBtn) delBtn.textContent = draft ? "Отменить создание" : "Удалить эту политику";
+
   const allowed = parseAllowedFactors(p.allowed_second_factors);
   $("#policy-form").innerHTML = `
-    <input type="hidden" name="id" value="${p.id}" />
+    <input type="hidden" name="id" value="${esc(String(p.id))}" />
+    ${
+      draft
+        ? `<p class="field-hint">Вкладка ещё не в базе. Заполните IP клиента (не *) и сохраните — политика появится постоянно.</p>`
+        : ""
+    }
+    <fieldset class="settings-section">
+      <legend>Область</legend>
+      ${field("Имя", "name", p.name || "", "text", "Подпись на вкладке сверху.")}
+      ${field(
+        "Клиенты RADIUS (IP / CIDR)",
+        "scope",
+        p.scope || "*",
+        "text",
+        draft
+          ? "Обязательно IP или CIDR клиента (не *). Например 10.0.0.5 или 10.0.0.0/24."
+          : "«*» — все клиенты (запасной вариант). Или IP/CIDR через запятую. Совпадение: точный IP > узкий CIDR > *."
+      )}
+    </fieldset>
     <fieldset class="settings-section">
       <legend>Общее</legend>
       ${radioField(
@@ -1295,11 +1549,11 @@ async function loadPolicy() {
       <div class="field">
         <label for="enroll_invite_ttl_seconds">Срок ссылки приглашения, сек</label>
         <input name="enroll_invite_ttl_seconds" id="enroll_invite_ttl_seconds" type="number" min="300" value="${p.enroll_invite_ttl_seconds ?? 86400}" />
-        <p class="field-hint">Email-ссылка на страницу enroll. 86400 = 24 часа.</p>
+        <p class="field-hint">Имеет смысл у политики «все клиенты» (*). Email-ссылка на enroll. 86400 = 24 часа.</p>
       </div>
     </fieldset>
     <div class="form-actions">
-      <button type="submit">Сохранить политику</button>
+      <button type="submit">${draft ? "Сохранить новую политику" : "Сохранить политику"}</button>
     </div>`;
   $("#policy-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -1307,26 +1561,136 @@ async function loadPolicy() {
     const fd = new FormData(form);
     const allowedFactors = collectAllowedFactors(form);
     if (!allowedFactors) {
-      alert("Выберите хотя бы один метод 2FA.");
+      showPolicyFlash("Выберите хотя бы один метод 2FA");
       return;
     }
-    await api("/api/policies/" + fd.get("id"), {
-      method: "PATCH",
-      body: JSON.stringify({
-        require_2fa: fd.get("require_2fa") === "true",
-        allowed_second_factors: allowedFactors,
-        totp_window_steps: Number(fd.get("totp_window_steps")),
-        otp_ttl_seconds: Number(fd.get("otp_ttl_seconds")),
-        max_otp_attempts_per_challenge: Number(fd.get("max_otp_attempts_per_challenge")),
-        challenge_ttl_seconds: Number(fd.get("challenge_ttl_seconds")),
-        enroll_invite_ttl_seconds: Number(fd.get("enroll_invite_ttl_seconds")),
-        radius_scheme_preference: fd.get("radius_scheme_preference") || "challenge",
-      }),
-    });
+    const body = collectPolicyBody(fd, allowedFactors);
+    try {
+      if (String(fd.get("id")) === POLICY_DRAFT_ID) {
+        if (!body.scope || body.scope === "*") {
+          showPolicyFlash("Для новой политики укажите IP или CIDR (не *)");
+          return;
+        }
+        const created = await api("/api/policies", {
+          method: "POST",
+          body: JSON.stringify({ ...body, copy_from_default: false }),
+        });
+        policyDraft = null;
+        selectedPolicyId = created.id;
+        await loadPolicy({ keepDraft: false });
+        showPolicyFlash("Политика создана и сохранена");
+        return;
+      }
+      await api("/api/policies/" + fd.get("id"), {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      selectedPolicyId = Number(fd.get("id"));
+      await loadPolicy({ keepDraft: true });
+      showPolicyFlash("Политика сохранена");
+    } catch (err) {
+      showPolicyFlash(String(err.message || err));
+    }
   };
 }
 
+function wirePolicyUiOnce() {
+  if (policyUiWired) return;
+  policyUiWired = true;
+
+  $("#policy-add")?.addEventListener("click", () => {
+    if (policyDraft) {
+      selectedPolicyId = POLICY_DRAFT_ID;
+      fillPolicyTabs();
+      renderPolicyForm(policyDraft);
+      showPolicyFlash("Уже есть черновик — настройте эту вкладку");
+      return;
+    }
+    openPolicyDraft();
+  });
+
+  $("#policy-preview-btn")?.addEventListener("click", async () => {
+    const outEl = $("#policy-preview-out");
+    const ip = ($("#policy-preview-ip")?.value || "").trim();
+    if (!outEl) return;
+    if (!ip) {
+      outEl.textContent = "Укажите IP";
+      outEl.classList.remove("muted");
+      return;
+    }
+    outEl.textContent = "Проверка…";
+    try {
+      const out = await api("/api/policies/resolve-preview?nas_ip=" + encodeURIComponent(ip));
+      const p = out.policy || {};
+      outEl.textContent = [
+        `IP: ${out.nas_ip}`,
+        `Политика: ${p.name || "—"} (id ${p.id})`,
+        `Область: ${p.scope || "—"}`,
+        `Режим: ${p.radius_scheme_preference === "otp_only" ? "только OTP" : "challenge (AD + OTP)"}`,
+        `2FA обязательна: ${p.require_2fa ? "да" : "нет"}`,
+      ].join("\n");
+      outEl.classList.add("muted");
+    } catch (err) {
+      outEl.textContent = String(err.message || err);
+      outEl.classList.remove("muted");
+    }
+  });
+
+  $("#policy-delete")?.addEventListener("click", async () => {
+    if (isPolicyDraft()) {
+      policyDraft = null;
+      selectedPolicyId = null;
+      await loadPolicy({ keepDraft: false });
+      showPolicyFlash("Создание отменено");
+      return;
+    }
+    if (policyItems.length <= 1) {
+      showPolicyFlash("Нельзя удалить единственную политику");
+      return;
+    }
+    const ok = await confirmDialog({
+      title: "Удалить политику?",
+      message: "Клиенты без более узкого совпадения снова попадут под «все» (*).",
+      confirmLabel: "Удалить",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/api/policies/" + selectedPolicyId, { method: "DELETE" });
+      selectedPolicyId = null;
+      await loadPolicy({ keepDraft: true });
+      showPolicyFlash("Политика удалена");
+    } catch (err) {
+      showPolicyFlash(String(err.message || err));
+    }
+  });
+}
+
+async function loadPolicy(opts = {}) {
+  const keepDraft = opts.keepDraft !== false;
+  wirePolicyUiOnce();
+  const data = await api("/api/policies");
+  policyItems = data.items || [];
+  if (!policyItems.length) return;
+  if (!keepDraft) policyDraft = null;
+  if (selectedPolicyId === POLICY_DRAFT_ID && policyDraft) {
+    fillPolicyTabs();
+    renderPolicyForm(policyDraft);
+    return;
+  }
+  if (!selectedPolicyId || !policyItems.some((p) => p.id === selectedPolicyId)) {
+    selectedPolicyId = data.default_id || policyItems[0].id;
+  }
+  const current = policyItems.find((p) => p.id === selectedPolicyId) || policyItems[0];
+  selectedPolicyId = current.id;
+  fillPolicyTabs();
+  renderPolicyForm(current);
+}
+
 const AUDIT_EVENT_LABELS = {
+  POLICY_CREATE: "Создание политики",
+  POLICY_PATCH: "Изменение политики",
+  POLICY_DELETE: "Удаление политики",
   USER_PATCH: "Изменение пользователя",
   TOTP_ISSUE: "Выпуск TOTP",
   TOTP_ENROLL_OK: "TOTP подтверждён",

@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.audit import audit
-from app.config import settings
 from app.ldap_auth import authenticate_ldap
 from app.models import OtpChallenge, Policy, User
 from app.otp import (
@@ -15,6 +14,7 @@ from app.otp import (
     utcnow,
     verify_totp,
 )
+from app.policy_resolve import default_policy, resolve_policy
 from app.settings_service import ldap_config
 from app.token_service import touch_last_used
 from app.tasks import send_expressms_otp, send_telegram_otp
@@ -42,17 +42,6 @@ def find_radius_user(db: Session, username: str) -> User | None:
         if user:
             return user
     return None
-
-
-def default_policy(db: Session) -> Policy:
-    row = db.query(Policy).order_by(Policy.id.asc()).first()
-    if row:
-        return row
-    row = Policy()
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
 
 
 def get_or_create_user(db: Session, username: str) -> User:
@@ -86,7 +75,7 @@ def handle_access_request(
 
 
 def _start(db: Session, username: str, password: str, nas_ip: str | None = None) -> dict:
-    policy = default_policy(db)
+    policy = resolve_policy(db, nas_ip)
     scheme = (policy.radius_scheme_preference or "challenge").strip().lower()
     if scheme in OTP_ONLY_SCHEMES:
         return _otp_only(db, username, password, policy, nas_ip=nas_ip)
@@ -98,7 +87,6 @@ def _start(db: Session, username: str, password: str, nas_ip: str | None = None)
 
     user = get_or_create_user(db, username)
     audit(db, "LDAP_OK", user_id=user.id, username=username, nas_ip=nas_ip)
-    policy = default_policy(db)
 
     if not policy.require_2fa:
         touch_last_used(user, db)
@@ -211,7 +199,7 @@ def _complete(db: Session, username: str, otp: str, state: str, nas_ip: str | No
         audit(db, "OTP_FAIL", username=username, reason="user_mismatch")
         return {"decision": "reject", "reply_message": "Invalid challenge"}
 
-    policy = default_policy(db)
+    policy = resolve_policy(db, nas_ip)
     row.attempts_count += 1
     db.commit()
     if row.attempts_count > policy.max_otp_attempts_per_challenge:

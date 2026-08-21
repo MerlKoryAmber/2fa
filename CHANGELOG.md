@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS otp_only как LinOTP/UAG
+
+- Политика «Что приходит на RADIUS»: `challenge` (LDAP + Challenge) или `otp_only` (только TOTP, 1-й фактор уже на NAS)
+- Поле `radius_scheme_preference` было в БД, в flow не работало — UAG слал OTP, мы биндились в AD
+
 ## 2026-08-21 (МСК) — RADIUS_ERROR api: LDAP bind вешал access-request
 
 - Аудит `gateway не достучался до API` = POST `/access-request` не успел (таймаут), не секрет

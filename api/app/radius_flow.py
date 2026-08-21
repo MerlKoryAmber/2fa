@@ -20,6 +20,28 @@ from app.token_service import touch_last_used
 from app.tasks import send_expressms_otp, send_telegram_otp
 
 VALID_METHODS = ("NONE", "TOTP", "EXPRESSMS", "TELEGRAM")
+OTP_ONLY_SCHEMES = frozenset({"otp_only", "token", "pap"})
+
+
+def find_radius_user(db: Session, username: str) -> User | None:
+    raw = (username or "").strip()
+    if not raw:
+        return None
+    names = [raw]
+    if "\\" in raw:
+        names.append(raw.rsplit("\\", 1)[-1].strip())
+    if "@" in raw:
+        names.append(raw.split("@", 1)[0].strip())
+    seen: set[str] = set()
+    for name in names:
+        key = name.lower()
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        user = db.query(User).filter(User.ad_username.ilike(name)).first()
+        if user:
+            return user
+    return None
 
 
 def default_policy(db: Session) -> Policy:
@@ -64,6 +86,11 @@ def handle_access_request(
 
 
 def _start(db: Session, username: str, password: str, nas_ip: str | None = None) -> dict:
+    policy = default_policy(db)
+    scheme = (policy.radius_scheme_preference or "challenge").strip().lower()
+    if scheme in OTP_ONLY_SCHEMES:
+        return _otp_only(db, username, password, policy, nas_ip=nas_ip)
+
     cfg = ldap_config(db)
     if not authenticate_ldap(username, password, cfg):
         audit(db, "LDAP_FAIL", username=username, nas_ip=nas_ip, reason="invalid_credentials")
@@ -97,6 +124,38 @@ def _start(db: Session, username: str, password: str, nas_ip: str | None = None)
         return _open_challenge(db, user, policy, "TELEGRAM", otp_hash, nas_ip=nas_ip)
 
     audit(db, "RADIUS_REJECT", user_id=user.id, username=username, reason="not_enrolled", nas_ip=nas_ip)
+    return {"decision": "reject", "reply_message": "2FA is not enrolled"}
+
+
+def _otp_only(
+    db: Session, username: str, password: str, policy: Policy, nas_ip: str | None = None
+) -> dict:
+    """NAS (UAG/checkpoint) уже проверил LDAP. User-Password = TOTP, без bind в AD."""
+    user = find_radius_user(db, username)
+    if not user:
+        audit(db, "RADIUS_REJECT", username=username, nas_ip=nas_ip, reason="unknown_user")
+        return {"decision": "reject", "reply_message": "Unknown user"}
+    if not user.token_active:
+        audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="token_inactive")
+        return {"decision": "reject", "reply_message": "Token disabled"}
+    if not policy.require_2fa:
+        touch_last_used(user, db)
+        audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="2fa_disabled", nas_ip=nas_ip)
+        return {"decision": "accept", "reply_message": "OK"}
+    if (
+        user.otp_method == "TOTP"
+        and user.totp_secret_encrypted
+        and user.totp_confirmed
+        and _method_allowed(policy, "TOTP")
+    ):
+        if verify_totp(user.totp_secret_encrypted, (password or "").strip(), policy.totp_window_steps):
+            touch_last_used(user, db)
+            audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="TOTP", nas_ip=nas_ip)
+            audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="otp_only", nas_ip=nas_ip)
+            return {"decision": "accept", "reply_message": "OK"}
+        audit(db, "OTP_FAIL", user_id=user.id, username=user.ad_username, method="TOTP", nas_ip=nas_ip)
+        return {"decision": "reject", "reply_message": "Invalid OTP"}
+    audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="otp_only_needs_totp")
     return {"decision": "reject", "reply_message": "2FA is not enrolled"}
 
 

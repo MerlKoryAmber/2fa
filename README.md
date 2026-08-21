@@ -103,6 +103,8 @@ python3 scripts/radius_demo.py
 
 Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник. Secret в панели / `.env` должен совпасть с NAS (VPN/UAG) — это настройка площадки, не правка кода.
 
+Политика **«Что приходит на RADIUS»**: `challenge` (пароль AD + Challenge) или `otp_only` — только TOTP, LDAP уже на UAG/Check Point (как LinOTP).
+
 ## LDAP / AD
 
 Через **Настройки** или bootstrap в `.env`:

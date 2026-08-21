@@ -1199,6 +1199,16 @@ async function loadPolicy() {
         p.require_2fa ? "true" : "false",
         "Если «Нет» — после успешного LDAP RADIUS сразу выдаёт Access-Accept без второго фактора."
       )}
+      ${radioField(
+        "Что приходит на RADIUS",
+        "radius_scheme_preference",
+        [
+          { value: "challenge", label: "Пароль AD, затем Access-Challenge и OTP (второй запрос)" },
+          { value: "otp_only", label: "Только OTP — LDAP уже проверил NAS (UAG, Check Point, LinOTP-схема)" },
+        ],
+        p.radius_scheme_preference || "challenge",
+        "UAG/checkpoint обычно шлют только код токена. Если выбран первый режим — MK 2FA биндится в AD с OTP как с паролем и NAS уходит в timeout."
+      )}
       ${allowedFactorsFields(allowed)}
     </fieldset>
     <fieldset class="settings-section">
@@ -1257,6 +1267,7 @@ async function loadPolicy() {
         max_otp_attempts_per_challenge: Number(fd.get("max_otp_attempts_per_challenge")),
         challenge_ttl_seconds: Number(fd.get("challenge_ttl_seconds")),
         enroll_invite_ttl_seconds: Number(fd.get("enroll_invite_ttl_seconds")),
+        radius_scheme_preference: fd.get("radius_scheme_preference") || "challenge",
       }),
     });
   };

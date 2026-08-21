@@ -35,7 +35,7 @@ class PolicyPatch(BaseModel):
     otp_ttl_seconds: int | None = None
     max_otp_attempts_per_challenge: int | None = None
     challenge_ttl_seconds: int | None = None
-    enroll_invite_ttl_seconds: int | None = None
+    radius_scheme_preference: str | None = None
 
 
 class TotpConfirm(BaseModel):

@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~17:40 МСК |
-| Ветка / коммит | `main` **013c574** |
+| Дата | 2026-08-21 ~17:50 МСК |
+| Ветка / коммит | `main` (RADIUS otp_only / UAG) |
 | Lab | `/opt/2fa` (этот сервер), podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -20,7 +20,7 @@
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS:** user bind на первый DC без service-search; аудит `timeout`/`http_*` если access-request не успел
+- **RADIUS:** политика `otp_only` — TOTP без LDAP (UAG/checkpoint); `challenge` — как в плане §1
 - **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull
 
 ## Хвосты

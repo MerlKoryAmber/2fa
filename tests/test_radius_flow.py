@@ -16,9 +16,33 @@ def test_radius_totp_challenge_and_accept(db_session, seeded_user, fake_redis, l
     assert step2["decision"] == "accept"
 
 
-def test_radius_reject_bad_password(db_session, seeded_user, fake_redis, monkeypatch):
-    monkeypatch.setattr("app.radius_flow.authenticate_ldap", lambda *a, **k: False)
-    out = handle_access_request(db_session, "demo", "bad", None)
+def test_otp_only_accepts_totp_without_ldap(db_session, seeded_user, fake_redis, monkeypatch):
+    monkeypatch.setattr(
+        "app.radius_flow.authenticate_ldap",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("LDAP must not run")),
+    )
+    p = db_session.query(Policy).first()
+    p.radius_scheme_preference = "otp_only"
+    db_session.commit()
+    code = pyotp.TOTP("JBSWY3DPEHPK3PXP").now()
+    out = handle_access_request(db_session, "demo", code, None)
+    assert out["decision"] == "accept"
+
+
+def test_otp_only_resolves_domain_user(db_session, seeded_user, fake_redis):
+    p = db_session.query(Policy).first()
+    p.radius_scheme_preference = "otp_only"
+    db_session.commit()
+    code = pyotp.TOTP("JBSWY3DPEHPK3PXP").now()
+    out = handle_access_request(db_session, r"CORP\demo", code, None)
+    assert out["decision"] == "accept"
+
+
+def test_otp_only_rejects_bad_code(db_session, seeded_user, fake_redis):
+    p = db_session.query(Policy).first()
+    p.radius_scheme_preference = "otp_only"
+    db_session.commit()
+    out = handle_access_request(db_session, "demo", "000000", None)
     assert out["decision"] == "reject"
 
 

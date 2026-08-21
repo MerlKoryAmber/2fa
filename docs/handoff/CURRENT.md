@@ -9,7 +9,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~20:45 МСК |
-| GitHub | `main` — Proxy-State + MA first (после push) |
+| GitHub | `main` @ **`07be410`** (Proxy-State + MA first) |
 | Фича HEAD кода | Proxy-State echo + host-network + MA + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

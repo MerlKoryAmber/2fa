@@ -15,6 +15,7 @@ from app.ldap_util import (
 def test_normalize_bind_user_domain_backslash():
     assert normalize_bind_user("CORP\\svc_mfa") == "CORP\\svc_mfa"
     assert normalize_bind_user("CORP\\svc_mfa", "DC=corp,DC=local") == "svc_mfa@corp.local"
+    assert normalize_bind_user("CORP\\", "DC=corp,DC=local") == "CORP\\"
 
 
 def test_normalize_bind_user_plain_with_base_dn():

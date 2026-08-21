@@ -6,9 +6,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~20:50 МСК |
-| GitHub | `main` @ **`07be410`** (Proxy-State + MA first); tip docs после приёмки |
-| Фича HEAD кода | otp_only + host-network + MA first + Proxy-State |
+| Дата | 2026-08-21 ~21:38 МСК |
+| GitHub | `main` — fix DOMAIN\\user bind (после push) |
+| Фича HEAD кода | otp_only стенд + fix normalize_bind_user |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
@@ -42,12 +42,12 @@
 
 ## Хвосты
 
-- Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
 - Cutover: пилоты ещё юзеров / чеклист вывода LinOTP из боя (когда скажет Merl)
 - Опционально: конфиг LinOTP RADIUS для сверки
 
-**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.
+**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.  
+**Стабильность:** fail `test_normalize_bind_user_domain_backslash` — исправлен (`DOMAIN\\user`).
 
 ## Не делать без команды Merl
 

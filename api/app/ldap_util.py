@@ -25,13 +25,19 @@ def domain_suffix_from_base_dn(base_dn: str) -> str:
 
 
 def normalize_bind_user(raw: str, base_dn: str = "") -> str:
-    """domain\\user → user@domain (если есть base DN), user@domain, username или legacy DN."""
+    """DOMAIN\\user → user@suffix(base_dn) если base DN есть; иначе оставить DOMAIN\\user (NTLM).
+
+    Также: user@domain, короткий username (+ base DN → UPN), legacy DN.
+    """
     val = (raw or "").strip()
     if not val:
         return ""
     if "\\" in val:
-        local, _domain = val.split("\\", 1)
+        # Windows: DOMAIN\samAccountName — слева NetBIOS, справа пользователь
+        _netbios, local = val.split("\\", 1)
         local = local.strip()
+        if not local:
+            return val
         suffix = domain_suffix_from_base_dn(base_dn)
         if suffix:
             return f"{local}@{suffix}"

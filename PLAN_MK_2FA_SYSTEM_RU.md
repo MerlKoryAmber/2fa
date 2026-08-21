@@ -330,7 +330,7 @@ sudo ./scripts/uninstall.sh --purge   # + volumes
 
 ### Качество
 
-- [x] `make verify` (~42–45 тест; стабильный fail: `test_normalize_bind_user_domain_backslash` — не наш функционал)
+- [x] `make verify` / pytest (**62 passed**, в т.ч. `test_normalize_bind_user_domain_backslash`)
 - [x] Alembic до **007**
 - [ ] UI browser acceptance (§4 CLAUDE.md)
 - [x] `scripts/install.sh` / `update.sh` / `uninstall.sh`

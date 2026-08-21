@@ -751,7 +751,7 @@ async function loadSettings() {
         ${field("Атрибут логина", "ldap_user_attr", s.ldap.user_attr || "sAMAccountName", "text", "Обычно sAMAccountName для Active Directory.")}
         ${field("OU для загрузки", "ldap_sync_ou", s.ldap.sync_ou || "", "text", "DN подразделения, напр. OU=Сотрудники,DC=Merl,DC=loc — только пользователи из этой OU и вложенных. Пусто — весь Base DN.")}
         ${field("Группа AD для загрузки", "ldap_sync_group", s.ldap.sync_group || "", "text", "DN группы (CN=…) или короткое имя (sAMAccountName). Только члены группы; вложенные группы учитываются. Пусто — без фильтра. Можно вместе с OU.")}
-        ${field("Учётная запись bind", "ldap_bind_user", s.ldap.bind_user || "", "text", "Работает: короткий логин (ldap) при заполненном Base DN; UPN user@Домен — имя из первого DC= (для DC=Merl,DC=loc → ldap@Merl). Не работает: domain\\user и UPN с .loc (ldap@merl.loc).")}
+        ${field("Учётная запись bind", "ldap_bind_user", s.ldap.bind_user || "", "text", "Короткий логин (svc) при Base DN → svc@из-DC; UPN user@домен; DOMAIN\\\\user при Base DN → user@из-DC (без Base DN остаётся NTLM DOMAIN\\\\user).")}
         ${secretField("Пароль bind", "ldap_bind_password", s.ldap.bind_password_set, "оставить пустым — не менять", "Пароль служебной учётки для поиска в AD.")}
         <div class="ldap-test-block">
           <h3 class="section-heading">Проверка подключения</h3>

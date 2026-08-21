@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — стабильность: DOMAIN\\user в LDAP bind
+
+- `normalize_bind_user`: чинили перепутанные части `DOMAIN\\user` → было `CORP@…`, стало `user@из-BaseDN`
+- Тест `test_normalize_bind_user_domain_backslash` зелёный; hint в настройках LDAP
+
 ## 2026-08-21 (МСК) — LinOTP: полный импорт на тест
 
 - Все пользователи/токены с LinOTP на тест-стенде (подтверждение Merl); VPN otp_only уже принят

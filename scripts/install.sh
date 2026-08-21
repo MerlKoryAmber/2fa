@@ -99,9 +99,13 @@ main() {
   alembic_upgrade
   wait_health
 
-  local pub
+  local pub detected
+  detected="$(suggest_public_base_url)"
   pub="$(grep -E '^PUBLIC_BASE_URL=' "${REPO_ROOT}/.env" 2>/dev/null | cut -d= -f2- || true)"
-  [[ -n "$pub" ]] || pub="https://$(hostname -I 2>/dev/null | awk '{print $1}')"
+  # старый .env.example тащил IP домашней lab — не показывать его как «этот сервер»
+  if [[ -z "$pub" || "$pub" == "https://192.168.0.178" ]]; then
+    pub="$detected"
+  fi
 
   cat <<EOF
 

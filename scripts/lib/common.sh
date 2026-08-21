@@ -189,6 +189,23 @@ gen_fernet_key() {
   openssl rand -base64 32 | tr -d '\n'
 }
 
+# Первый IPv4 хоста (не loopback). Не docker0 в приоритете hostname -I обычно даёт основной.
+host_primary_ipv4() {
+  hostname -I 2>/dev/null | tr ' ' '\n' | awk '
+    $0 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $0 !~ /^127\./ { print; exit }
+  '
+}
+
+suggest_public_base_url() {
+  local ip
+  ip="$(host_primary_ipv4)"
+  if [[ -n "$ip" ]]; then
+    printf 'https://%s' "$ip"
+  else
+    printf 'https://127.0.0.1'
+  fi
+}
+
 ensure_env_file() {
   local envf="${REPO_ROOT}/.env"
   local ex="${REPO_ROOT}/.env.example"
@@ -229,6 +246,8 @@ ensure_env_file() {
   _env_set INTERNAL_API_TOKEN "$internal"
   _env_set RADIUS_SECRET "$radius"
   _env_set ADMIN_PASSWORD "$admin_pass"
+  _env_set PUBLIC_BASE_URL "$(suggest_public_base_url)"
+  log "PUBLIC_BASE_URL=$(grep '^PUBLIC_BASE_URL=' "$envf" | cut -d= -f2-)"
   # lab defaults из example; LDAP настраивается в панели
   rm -f "${envf}.bak"
 

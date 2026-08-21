@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — install: PUBLIC_BASE_URL = IP этого хоста
+
+- `.env.example` больше не содержит `192.168.0.178` (домашняя lab)
+- При создании `.env` скрипт ставит `https://<hostname -I>`
+- Баннер установки не показывает старый lab-IP, если он остался в `.env`
+
 ## 2026-08-21 (МСК) — install: один образ api, без HEALTHCHECK в Dockerfile
 
 - `api` / `worker` / `worker-otp` / `beat` делят `localhost/mk2fa-api:latest` — не 4 параллельных `podman build` одного Dockerfile (Prepare images failed)

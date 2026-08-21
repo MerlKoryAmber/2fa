@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~15:20 МСК |
-| Ветка / коммит | `main` @ `1df5a29` (один образ mk2fa-api) |
+| Дата | 2026-08-21 ~15:32 МСК |
+| Ветка / коммит | локально (PUBLIC_BASE_URL с хоста) поверх `4a72940` |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -16,6 +16,7 @@
 
 - Own → **MK 2FA**; F5-вкладки; **worker-otp**; UI Interros
 - **install:** pip `podman-compose` под sudo; `FROM docker.io/...`; **один** образ `localhost/mk2fa-api` на api+workers+beat
+- **install:** `PUBLIC_BASE_URL` с IP текущего хоста, не lab `192.168.0.178`
 
 ## Хвосты
 

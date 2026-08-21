@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS: Proxy-State + MA первым
+
+- NPS proxy (HCPGW → NPS → MK 2FA): без эха **Proxy-State** ответ «не свой» → reason **117** при `reply_len=51`
+- Message-Authenticator — **первый** атрибут ответа (BlastRADIUS); лог `proxy_state=` / `sent N bytes`
+
 ## 2026-08-21 (МСК) — RADIUS network_mode: host
 
 - После MA: лог `decision=reject reply_len=51`, NPS всё равно **117** — ответ UDP через `ports:`/DNAT не с IP хоста

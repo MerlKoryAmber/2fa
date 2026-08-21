@@ -8,9 +8,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~20:38 МСК |
-| GitHub | `main` @ **`01c8d1e`** (RADIUS network_mode: host) |
-| Фича HEAD кода | host-network RADIUS + MA + ACL + otp_only |
+| Дата | 2026-08-21 ~20:45 МСК |
+| GitHub | `main` — Proxy-State + MA first (после push) |
+| Фича HEAD кода | Proxy-State echo + host-network + MA + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
@@ -29,17 +29,14 @@
 3. Архитектура площадки как **LinOTP + VMware UAG**: 1-й фактор на checkpoint/UAG, на RADIUS уходит **только OTP**, не пароль AD.
 4. MK 2FA до `bd4097f` всегда делал LDAP bind `User-Password` → bind в AD кодом TOTP → timeout NAS.
 
-**Симптом:** аудит OTP_FAIL + `reply_len=51`, NPS **117** did not respond — UDP DNAT. Фикс: `network_mode: host` для radius.
+**Симптом:** host + MA, всё равно NPS 117 при `reply_len=51` — не вернули **Proxy-State** прокси.
 
 **На сервере после push:**
 
 ```bash
-cd /opt/2fa
-sudo ./scripts/update.sh
-podman logs --tail 5 2fa_radius_1   # listening; NetworkMode=host
+cd /opt/2fa && sudo ./scripts/update.sh
+# в логе radius: proxy_state=True и sent N bytes to 172.22.10.231:...
 ```
-
-Политика **otp_only**. Проверка: неверный OTP → NPS не 117; верный → Accept.
 
 ## Что вошло в код (сессия 21.08)
 

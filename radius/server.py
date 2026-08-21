@@ -187,22 +187,52 @@ def handle(data: bytes, addr) -> bytes | None:
         reply.code = AccessAccept
     elif decision == "challenge":
         reply.code = AccessChallenge
-        state_out = result.get("state") or ""
-        reply.AddAttribute("State", state_out.encode() if isinstance(state_out, str) else state_out)
     else:
         reply.code = AccessReject
-    if msg:
-        try:
-            reply.AddAttribute("Reply-Message", msg if isinstance(msg, str) else msg.decode("utf-8", "replace"))
-        except Exception:
-            log.exception("Reply-Message skip")
-    # UAG/checkpoint часто дропают ответ без MA → VPN «висит», хотя в аудите уже OTP_FAIL/Accept
+
+    # BlastRADIUS / NPS: Message-Authenticator — первый атрибут ответа
     try:
         reply.add_message_authenticator()
     except Exception:
         log.exception("Message-Authenticator skip")
+
+    # NPS как RADIUS Proxy: Proxy-State из запроса MUST вернуться без изменений
+    if "Proxy-State" in pkt:
+        for ps in pkt["Proxy-State"]:
+            try:
+                reply.AddAttribute("Proxy-State", ps)
+            except Exception:
+                log.exception("Proxy-State copy skip")
+
+    if decision == "challenge":
+        state_out = result.get("state") or ""
+        try:
+            reply.AddAttribute(
+                "State",
+                state_out.encode() if isinstance(state_out, str) else state_out,
+            )
+        except Exception:
+            log.exception("State skip")
+
+    if msg:
+        try:
+            reply.AddAttribute(
+                "Reply-Message",
+                msg if isinstance(msg, str) else msg.decode("utf-8", "replace"),
+            )
+        except Exception:
+            log.exception("Reply-Message skip")
+
     out = reply.ReplyPacket()
-    log.info("user=%s from=%s decision=%s reply_len=%s", username, addr[0], decision, len(out))
+    log.info(
+        "user=%s from=%s:%s decision=%s reply_len=%s proxy_state=%s",
+        username,
+        addr[0],
+        addr[1],
+        decision,
+        len(out),
+        "Proxy-State" in pkt,
+    )
     return out
 
 
@@ -215,7 +245,8 @@ def main():
         try:
             out = handle(data, addr)
             if out:
-                sock.sendto(out, addr)
+                sent = sock.sendto(out, addr)
+                log.info("sent %s bytes to %s:%s", sent, addr[0], addr[1])
         except Exception:
             log.exception("packet from %s", addr)
 

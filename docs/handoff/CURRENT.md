@@ -8,13 +8,14 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~17:55 МСК |
-| GitHub | `https://github.com/MerlKoryAmber/2fa` ветка **`main`** |
-| Коммит (docs) | **`2e00155`** (handoff для основного клиента; фича **`bd4097f`** otp_only) |
-| Фича HEAD кода | **`bd4097f`** `feat: RADIUS otp_only — TOTP без LDAP, как LinOTP на UAG` |
-| Локальный workspace | Windows `C:\cursor\2fa` (этот репозиторий) |
-| Сервер | CentOS Stream 9, каталог **`/opt/2fa`**, compose project `2fa_*` |
-| Alembic head | **007** (`admins.auth_source`) |
+| Дата | 2026-08-21 ~20:15 МСК |
+| GitHub | `main` — fix ACL `parse_allowed_clients` (после push) |
+| Фича HEAD кода | fix RADIUS http_500 + otp_only |
+| Локальный workspace | `/root/2fa` (lab) |
+| Сервер | CentOS Stream 9, **`/opt/2fa`** |
+| Alembic head | **007** |
+| LinOTP → тест | **импорт утром 21.08** (токены на тесте есть) |
+
 | Вход панели | `admin` / `admin`, форма пустая |
 | Автор коммитов | `MerlKory <llevelamoney@gmail.com>` через env, не `git config` |
 | Push | только по команде Merl; **не** `git add .`; Windows git: `C:\Program Files\Git\cmd` |
@@ -28,16 +29,14 @@
 3. Архитектура площадки как **LinOTP + VMware UAG**: 1-й фактор на checkpoint/UAG, на RADIUS уходит **только OTP**, не пароль AD.
 4. MK 2FA до `bd4097f` всегда делал LDAP bind `User-Password` → bind в AD кодом TOTP → timeout NAS.
 
-**На сервере ещё нужно (человек / следующий агент не делает руками compose):**
+**На сервере после этого push:**
 
 ```bash
 cd /opt/2fa
 sudo ./scripts/update.sh
 ```
 
-Затем панель → **Политика** → «Что приходит на RADIUS» → **«Только OTP — LDAP уже проверил NAS»** → сохранить.
-
-`U1807` должен быть в Пользователях с **подтверждённым TOTP** (импорт LinOTP). Проверка: попытка VPN → Аудит `RADIUS_ACCEPT` причина `otp_only`. `unknown_user` = нет учётки в MK 2FA.
+Политика уже **otp_only** (если включали). LinOTP-токены на тесте **импортированы утром**. Проверка: VPN `U1807` → Аудит `RADIUS_ACCEPT` / `otp_only`. Было «ошибка API (500)» = баг ACL без import.
 
 ## Что вошло в код (сессия 21.08)
 
@@ -62,11 +61,10 @@ sudo ./scripts/update.sh
 
 ## Хвосты
 
-- **Сервер `/opt/2fa`:** `update.sh` + политика `otp_only` + проверка VPN `U1807` (не сделано в этой сессии после пуша `bd4097f`)
-- Полный `guid_map.csv` → LinOTP export → `scripts/import_linotp_seeds.sh`
+- **Сервер `/opt/2fa`:** `update.sh` этого фикса → VPN `U1807` (ожидание: Accept `otp_only`, не http_500)
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- `PLAN_MK_2FA_SYSTEM_RU.md` §1 всё ещё канон challenge; otp_only — ADR 0001 (доп. схема для UAG)
+- `PLAN_MK_2FA_SYSTEM_RU.md` §1 всё ещё канон challenge; otp_only — ADR 0001
 
 ## Не делать без команды Merl
 
@@ -79,6 +77,6 @@ sudo ./scripts/update.sh
 
 1. `git pull --ff-only` в `C:\cursor\2fa` и на `/opt/2fa` если код там отстаёт
 2. Прочитать этот файл + CHANGELOG верх + ADR 0001
-3. Если VPN ещё timeout: на сервере update + политика otp_only; смотреть Аудит, не выдумывать LDAP
+3. После update фикса ACL: VPN + Аудит; не копать LDAP при otp_only
 4. Стиль: caveman RU, Conventional Commits, время МСК
 5. Не `git add .`

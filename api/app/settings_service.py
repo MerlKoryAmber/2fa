@@ -7,6 +7,7 @@ from app.ldap_util import (
     serialize_servers,
     server_from_dict,
 )
+from app.radius_acl import parse_allowed_clients
 
 from sqlalchemy.orm import Session
 

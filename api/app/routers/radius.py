@@ -69,23 +69,23 @@ def access_request(
     _: None = Depends(require_internal),
 ):
     nas = body.nas_ip or (request.client.host if request.client else "unknown")
-    cfg = radius_config(db)
-    if not is_client_allowed(nas, cfg.allowed_rules()):
-        audit(db, "RADIUS_NAS_DENIED", username=body.username, nas_ip=nas, reason="allowlist")
-        return {"decision": "reject", "reply_message": "NAS not allowed"}
     try:
-        enforce_rate_limit(
-            "radius",
-            f"{body.username}:{nas}",
-            settings.rate_limit_radius_per_minute,
-            60,
-        )
-    except HTTPException as exc:
-        if exc.status_code == 429:
-            audit(db, "RADIUS_ERROR", username=body.username, nas_ip=nas, reason="rate_limit")
-            return {"decision": "reject", "reply_message": "Too many requests"}
-        raise
-    try:
+        cfg = radius_config(db)
+        if not is_client_allowed(nas, cfg.allowed_rules()):
+            audit(db, "RADIUS_NAS_DENIED", username=body.username, nas_ip=nas, reason="allowlist")
+            return {"decision": "reject", "reply_message": "NAS not allowed"}
+        try:
+            enforce_rate_limit(
+                "radius",
+                f"{body.username}:{nas}",
+                settings.rate_limit_radius_per_minute,
+                60,
+            )
+        except HTTPException as exc:
+            if exc.status_code == 429:
+                audit(db, "RADIUS_ERROR", username=body.username, nas_ip=nas, reason="rate_limit")
+                return {"decision": "reject", "reply_message": "Too many requests"}
+            raise
         return handle_access_request(db, body.username, body.password, body.state, nas_ip=nas)
     except Exception:
         log.exception("radius access-request user=%s nas=%s", body.username, nas)

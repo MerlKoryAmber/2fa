@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS http_500: забытый import ACL
+
+- `RadiusConfig.allowed_rules` → `NameError: parse_allowed_clients` → gateway писал «ошибка API (500)»
+- Импорт из `radius_acl`; ACL/rate-limit внутри try access-request (не голый 500)
+- LinOTP-токены на тест-стенде уже импортированы (утро 21.08)
+
 ## 2026-08-21 (МСК) — handoff для основного клиента Cursor
 
 - `docs/handoff/CURRENT.md`: срез GitHub `3d5f8bb` / фича `bd4097f`, стенд `/opt/2fa`, NAS `172.22.10.231`, хвост `otp_only` на сервере

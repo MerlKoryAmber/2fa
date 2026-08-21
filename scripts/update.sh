@@ -17,8 +17,9 @@ Usage: update.sh [options]
   --no-pull     не делать git fetch/pull
   -h, --help
 
-Делает полный compose down → build api/radius/web → up -d (иначе на lab новый образ api
-часто не подхватывается). Затем alembic, health, smoke RADIUS→API.
+После pull скрипт exec'ит себя с --no-pull — иначе в памяти остаётся старый
+common.sh (smoke 403 без диагностики). Затем down → build api/radius/web → up,
+alembic, health, smoke RADIUS→API.
 EOF
 }
 
@@ -40,16 +41,15 @@ cd "$REPO_ROOT"
 
 if [[ "$DO_PULL" -eq 1 ]]; then
   if [[ -d "${REPO_ROOT}/.git" ]] && have_cmd git; then
-    log "git fetch + pull --ff-only"
-    git fetch origin 2>/dev/null || git fetch 2>/dev/null || warn "git fetch не удался"
-    if ! git pull --ff-only 2>/dev/null; then
-      warn "fast-forward pull не удался — обновите ветку вручную, затем: $0 --no-pull"
-    fi
+    git_sync_repo
+    log "перечитываю update.sh после pull"
+    exec bash "${SCRIPT_DIR}/update.sh" --no-pull
   else
-    warn "не git-репозиторий — пропуск pull (положите новый код и снова update --no-pull)"
+    die "не git-репозиторий — положите код и: $0 --no-pull"
   fi
 fi
 
+log "сборка с HEAD $(git log -1 --oneline 2>/dev/null || echo 'нет git')"
 normalize_env_file
 open_firewall_hint
 

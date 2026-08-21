@@ -56,7 +56,7 @@ prepare_tree() {
       have_cmd git || die "нужен git"
       log "clone $REPO_URL → $INSTALL_DIR (branch $BRANCH)"
       if [[ -z "$(ls -A "$INSTALL_DIR" 2>/dev/null || true)" ]]; then
-        git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$INSTALL_DIR"
+        git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
       else
         die "$INSTALL_DIR не пуст и без docker-compose.yml"
       fi

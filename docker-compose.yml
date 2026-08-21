@@ -33,6 +33,7 @@ services:
       SSL_DATA_DIR: /data/ssl
     volumes:
       - ssl_certs:/data/ssl
+      - ./.env:/run/mk2fa/host.env:ro,z
     ports:
       - "8000:8000"
     depends_on:
@@ -117,6 +118,8 @@ services:
     env_file: .env
     environment:
       API_URL: http://api:8000
+    volumes:
+      - ./.env:/run/mk2fa/host.env:ro,z
     ports:
       - "1812:1812/udp"
     depends_on:

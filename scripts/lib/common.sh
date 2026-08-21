@@ -179,6 +179,29 @@ export_repo_env() {
   done < "$envf"
 }
 
+# fetch+ff-only. Shallow clone от старого install --depth 1 иначе не видит новые коммиты.
+git_sync_repo() {
+  have_cmd git || die "нужен git"
+  [[ -d "${REPO_ROOT}/.git" ]] || die "нет .git в $REPO_ROOT — ставьте через install.sh --dir"
+  cd "$REPO_ROOT"
+  if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null || true)" == "true" ]]; then
+    log "shallow clone — git fetch --unshallow (иначе update не подтягивает коммиты)"
+    git fetch --unshallow origin || git fetch --unshallow || git fetch --deepen=200 origin
+  fi
+  log "git fetch origin"
+  git fetch origin
+  local br
+  br="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ "$br" == "HEAD" ]]; then
+    log "detached HEAD — checkout main"
+    git checkout -B main origin/main
+    br="main"
+  fi
+  log "git pull --ff-only origin $br"
+  git pull --ff-only origin "$br"
+  log "HEAD $(git log -1 --oneline)"
+}
+
 # Запуск compose: pip на EL → /usr/local/bin + PYTHONPATH.
 compose() {
   local engine
@@ -331,41 +354,64 @@ ctr_exec() {
 
 # После up: radius должен получить 200 на /internal/radius/config, не 403.
 smoke_internal_radius() {
-  local rad code
+  local rad code out api
   rad="$(find_compose_ctr radius)"
   if [[ -z "$rad" ]]; then
     die "smoke RADIUS: контейнер radius не найден"
   fi
   log "smoke: RADIUS → API /internal/radius/config ($rad)"
-  code="$(ctr_exec "$rad" python3 -c "
+  out="$(ctr_exec "$rad" python3 -c "
 import os
 import httpx
-t = (os.environ.get('INTERNAL_API_TOKEN') or '').strip().strip(chr(34)).strip(chr(39))
-r = httpx.get('http://api:8000/internal/radius/config', headers={'X-Internal-Token': t}, timeout=10)
+
+def tok():
+    p = '/run/mk2fa/host.env'
+    if os.path.isfile(p):
+        with open(p, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip().lstrip('\ufeff')
+                if line.startswith('INTERNAL_API_TOKEN='):
+                    t = line.split('=', 1)[1].strip().strip(chr(34)).strip(chr(39))
+                    if t:
+                        return t
+    return (os.environ.get('INTERNAL_API_TOKEN') or '').strip().strip(chr(34)).strip(chr(39))
+
+t = tok()
+print('token_len', len(t), 'file', os.path.isfile('/run/mk2fa/host.env'))
+r = httpx.get(
+    'http://api:8000/internal/radius/config',
+    headers={'X-Internal-Token': t, 'Authorization': 'Bearer ' + t},
+    timeout=10,
+)
 print(r.status_code)
-" | tail -1 || true)"
+" 2>&1 || true)"
+  log "smoke out: $out"
+  code="$(printf '%s\n' "$out" | grep -E '^[0-9]{3}$' | tail -1 || true)"
   if [[ "$code" == "200" ]]; then
     log "smoke RADIUS→API: 200"
     return 0
   fi
-  local api
   api="$(find_compose_ctr api)"
   if [[ -n "$api" ]]; then
-    log "smoke fail HTTP ${code:-нет}: env vs pydantic (длины/sha256, не секрет)"
+    log "smoke fail HTTP ${code:-нет}: длины/sha256 (не секрет)"
     ctr_exec "$api" python -c "
 import os, hashlib
+from pathlib import Path
 from app.config import settings
+from app.internal_token import expected_internal_token
 a = os.environ.get('INTERNAL_API_TOKEN') or ''
 b = settings.internal_api_token or ''
+c = expected_internal_token()
 def h(x):
     x = (x or '').strip().strip(chr(34)).strip(chr(39))
     return '%s sha=%s' % (len(x), hashlib.sha256(x.encode()).hexdigest()[:12])
 print('env', h(a))
 print('settings', h(b))
-print('equal', h(a) == h(b))
+print('expected', h(c))
+print('host.env', Path('/run/mk2fa/host.env').is_file())
 " || true
   fi
-  die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200). git pull + sudo ./scripts/update.sh"
+  die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200)"
 }
 
 wait_health() {

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — update: pull не вхолостую + токен из смонтированного .env
+
+- Текст «Лог: podman logs 2fa_radius_1» = **старый** `common.sh`: `source` до `git pull`, ошибки fetch спрятаны; shallow `--depth 1` не видел новые коммиты
+- `update.sh`: unshallow + видимый HEAD + `exec --no-pull` после pull
+- api и radius монтируют хостовый `.env` в `/run/mk2fa/host.env` — один токен, не compose env_file
+- smoke печатает `token_len` / sha256 при 403
+
 ## 2026-08-21 (МСК) — RADIUS 403: pydantic dotenv не перебивает compose
 
 - `INTERNAL_API_TOKEN` для `/internal/*` берётся из `os.environ` (как у radius)

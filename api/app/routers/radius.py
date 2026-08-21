@@ -1,16 +1,19 @@
-import os
+import logging
 import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
+from app.internal_token import expected_internal_token, got_internal_token
 from app.rate_limit import enforce_rate_limit
 from app.radius_flow import handle_access_request
 from app.radius_acl import is_client_allowed
 from app.settings_service import radius_config
+
+log = logging.getLogger("uvicorn.error")
 
 router = APIRouter(tags=["radius"])
 
@@ -22,17 +25,15 @@ class RadiusIn(BaseModel):
     nas_ip: str | None = None
 
 
-def _clean_token(raw: str | None) -> str:
-    return (raw or "").strip().strip('"').strip("'")
-
-
-def require_internal(
-    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
-):
-    # os.environ — то же, что у radius; settings мог взять другой .env (dotenv > env).
-    got = _clean_token(x_internal_token)
-    exp = _clean_token(os.environ.get("INTERNAL_API_TOKEN") or settings.internal_api_token)
+def require_internal(request: Request):
+    got = got_internal_token(request)
+    exp = expected_internal_token() or (settings.internal_api_token or "").strip()
     if not exp or not secrets.compare_digest(got, exp):
+        log.warning(
+            "internal token reject got_len=%s exp_len=%s",
+            len(got),
+            len(exp),
+        )
         raise HTTPException(403, "Forbidden")
 
 

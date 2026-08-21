@@ -13,7 +13,31 @@ log = logging.getLogger("radius")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 API = os.environ.get("API_URL", "http://api:8000")
-TOKEN = os.environ["INTERNAL_API_TOKEN"].strip()
+HOST_ENV = "/run/mk2fa/host.env"
+
+
+def _clean_token(raw: str | None) -> str:
+    return (raw or "").strip().strip('"').strip("'")
+
+
+def _internal_token() -> str:
+    if os.path.isfile(HOST_ENV):
+        try:
+            with open(HOST_ENV, encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    line = line.strip().lstrip("\ufeff")
+                    if line.startswith("INTERNAL_API_TOKEN="):
+                        t = _clean_token(line.split("=", 1)[1])
+                        if t:
+                            return t
+        except OSError:
+            pass
+    t = _clean_token(os.environ.get("INTERNAL_API_TOKEN"))
+    if not t:
+        raise RuntimeError("INTERNAL_API_TOKEN missing (env and /run/mk2fa/host.env)")
+    return t
+
+
 FALLBACK_SECRET = os.environ.get("RADIUS_SECRET", "testing123").strip().encode()
 LISTEN = os.environ.get("RADIUS_LISTEN", "0.0.0.0")
 PORT = int(os.environ.get("RADIUS_PORT", "1812"))
@@ -61,7 +85,10 @@ def _refresh_runtime() -> tuple[bytes, list[str]]:
         with httpx.Client(timeout=5.0) as client:
             r = client.get(
                 f"{API}/internal/radius/config",
-                headers={"X-Internal-Token": TOKEN},
+                headers={
+                    "X-Internal-Token": _internal_token(),
+                    "Authorization": f"Bearer {_internal_token()}",
+                },
             )
             r.raise_for_status()
             data = r.json()
@@ -108,7 +135,10 @@ def handle(data: bytes, addr) -> bytes | None:
             r = client.post(
                 f"{API}/internal/radius/access-request",
                 json=payload,
-                headers={"X-Internal-Token": TOKEN},
+                headers={
+                    "X-Internal-Token": _internal_token(),
+                    "Authorization": f"Bearer {_internal_token()}",
+                },
             )
             r.raise_for_status()
             result = r.json()

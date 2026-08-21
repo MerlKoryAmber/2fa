@@ -41,8 +41,10 @@ sudo ./scripts/install.sh --skip-pkgs
 | Скрипт | Назначение |
 |--------|------------|
 | `scripts/install.sh` | пакеты + `.env` + compose + health + smoke RADIUS→API |
-| `scripts/update.sh` | `git pull --ff-only` + rebuild + alembic + health + smoke RADIUS→API |
+| `scripts/update.sh` | `git pull --ff-only` (unshallow если надо) + **перечитывает себя** + rebuild + health + smoke |
 | `scripts/uninstall.sh` | `compose down`; `--purge` удаляет volumes; `--purge --remove-dir` — и каталог |
+
+`update.sh` после pull делает `exec --no-pull`. Иначе в памяти остаётся старый `common.sh` (smoke 403 без диагностики). Install больше не клонирует `--depth 1`.
 
 Сгенерированные пароли (если `.env` создавался впервые): `.install-credentials.txt` (в `.gitignore`).
 

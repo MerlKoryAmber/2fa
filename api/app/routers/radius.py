@@ -34,7 +34,10 @@ def require_internal(request: Request):
             len(got),
             len(exp),
         )
-        raise HTTPException(403, "Forbidden")
+        raise HTTPException(
+            403,
+            {"msg": "Forbidden", "got_len": len(got), "exp_len": len(exp)},
+        )
 
 
 @router.get("/internal/radius/config")

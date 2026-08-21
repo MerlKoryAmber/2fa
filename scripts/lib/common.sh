@@ -382,8 +382,10 @@ r = httpx.get(
     'http://api:8000/internal/radius/config',
     headers={'X-Internal-Token': t, 'Authorization': 'Bearer ' + t},
     timeout=10,
+    trust_env=False,
 )
 print(r.status_code)
+print(r.text[:240])
 " 2>&1 || true)"
   log "smoke out: $out"
   code="$(printf '%s\n' "$out" | grep -E '^[0-9]{3}$' | tail -1 || true)"

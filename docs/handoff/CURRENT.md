@@ -20,12 +20,12 @@
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS 403:** токен из смонтированного `/run/mk2fa/host.env` (= хостовый `.env`); pydantic env выше dotenv
-- **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull (иначе старый smoke в памяти)
+- **RADIUS 403:** токен из `/run/mk2fa/host.env`; httpx `trust_env=False` (не корпоративный HTTP_PROXY); 403 тело `got_len`/`exp_len`
+- **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull
 
 ## Хвосты
 
-- На уже стоящем `/opt/2fa` **один раз**: `git fetch --unshallow` (если shallow) + `git pull` + `bash scripts/update.sh --no-pull` — пока на сервере старый update.sh без exec
+- На уже стоящем `/opt/2fa`: `sudo ./scripts/update.sh` (уже с re-exec)
 - LDAP/RADIUS secret/NAS allowlist — настройки площадки в панели, не код
 - Полный `guid_map.csv` → export → import на тест (`scripts/import_linotp_seeds.sh`, не python на хосте)
 - Fail теста: `test_normalize_bind_user_domain_backslash`

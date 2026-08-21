@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS 403: httpx ходил в HTTP_PROXY
+
+- Токен совпадал (48 / один sha), `host.env` смонтирован — секрет ни при чём
+- `httpx` по умолчанию берёт proxy из env; запрос к `http://api:8000` уходит на корпоративный прокси → чужой 403
+- radius + smoke: `trust_env=False`; в 403 тело `got_len`/`exp_len`
+
 ## 2026-08-21 (МСК) — update: pull не вхолостую + токен из смонтированного .env
 
 - Текст «Лог: podman logs 2fa_radius_1» = **старый** `common.sh`: `source` до `git pull`, ошибки fetch спрятаны; shallow `--depth 1` не видел новые коммиты

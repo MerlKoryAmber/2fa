@@ -118,6 +118,8 @@ services:
     env_file: .env
     environment:
       API_URL: http://api:8000
+      NO_PROXY: api,localhost,127.0.0.1
+      no_proxy: api,localhost,127.0.0.1
     volumes:
       - ./.env:/run/mk2fa/host.env:ro,z
     ports:

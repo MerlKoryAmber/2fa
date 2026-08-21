@@ -82,7 +82,7 @@ def _refresh_runtime() -> tuple[bytes, list[str]]:
     secret = FALLBACK_SECRET
     allowed: list[str] = []
     try:
-        with httpx.Client(timeout=5.0) as client:
+        with httpx.Client(timeout=5.0, trust_env=False) as client:
             r = client.get(
                 f"{API}/internal/radius/config",
                 headers={
@@ -131,7 +131,7 @@ def handle(data: bytes, addr) -> bytes | None:
 
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
     try:
-        with httpx.Client(timeout=8.0) as client:
+        with httpx.Client(timeout=8.0, trust_env=False) as client:
             r = client.post(
                 f"{API}/internal/radius/access-request",
                 json=payload,

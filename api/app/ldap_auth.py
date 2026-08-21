@@ -9,6 +9,7 @@ from app.ldap_util import (
     is_group_dn,
     bind_uses_ntlm,
     domain_suffix_from_base_dn,
+    ldap_entry_attr,
     normalize_bind_user,
     server_urls,
 )
@@ -249,11 +250,11 @@ def list_ldap_users(cfg: LdapConfig, limit: int = 500) -> tuple[list[dict], str 
                 continue
             out: list[dict] = []
             for entry in conn.entries:
-                uname = str(getattr(entry, cfg.user_attr, "") or "").strip()
+                uname = ldap_entry_attr(entry, cfg.user_attr)
                 if not uname:
                     continue
-                email = str(getattr(entry, "mail", "") or "").strip() or None
-                display_name = str(getattr(entry, "displayName", "") or "").strip() or None
+                email = ldap_entry_attr(entry, "mail") or None
+                display_name = ldap_entry_attr(entry, "displayName") or None
                 out.append({"username": uname, "email": email, "display_name": display_name})
             conn.unbind()
             return out, None

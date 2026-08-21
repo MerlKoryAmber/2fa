@@ -1060,10 +1060,10 @@ async function loadUsers() {
   $("#user-rows").innerHTML = rows
     .map(
       (u) => `<tr>
-      <td>${esc(u.ad_username)}</td>
-      <td>${esc(u.display_name || "—")}</td>
-      <td class="muted">${esc(u.ldap_email || "—")}</td>
-      <td>${esc(userMethodLabel(u.otp_method))}</td>
+      <td class="col-ad">${esc(u.ad_username)}</td>
+      <td class="col-name" title="${esc(u.display_name || "")}">${esc(u.display_name || "—")}</td>
+      <td class="col-email muted">${esc(u.ldap_email || "—")}</td>
+      <td class="col-method">${esc(userMethodLabel(u.otp_method))}</td>
       <td class="user-channels muted">${userChannelsCell(u)}</td>
       <td class="row-actions">
         ${

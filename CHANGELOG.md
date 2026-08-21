@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — имя из AD: кириллица, не \\u041a
+
+- LDAP: брать `.value` атрибута, не `str(Attribute)` (ascii-escape)
+- Уже записанные `\\uXXXX` декодируются в API; колонка «Имя» с ellipsis, кнопки не уезжают
+
 ## 2026-08-21 (МСК) — импорт LinOTP через контейнер api
 
 - `scripts/import_linotp_seeds.sh`: CSV в контейнер api (cryptography уже в образе)

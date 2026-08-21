@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~15:58 МСК |
-| Ветка / коммит | `main` @ `12b8c19` (import LinOTP через api) |
+| Дата | 2026-08-21 ~16:12 МСК |
+| Ветка / коммит | локально (кириллица displayName) поверх `dffc900` |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -18,6 +18,7 @@
 - **install:** pip `podman-compose` под sudo; `FROM docker.io/...`; **один** образ `localhost/mk2fa-api` на api+workers+beat
 - **install:** `PUBLIC_BASE_URL` с IP текущего хоста, не lab `192.168.0.178`
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
+- **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 
 ## Хвосты
 

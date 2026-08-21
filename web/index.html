@@ -180,8 +180,15 @@
               </select>
               <button type="button" id="user-filter-btn" class="ghost btn-sm">Применить</button>
             </div>
-            <table class="data-table">
-              <thead><tr><th>AD</th><th>Имя</th><th>Email</th><th>Активный метод</th><th>Настроенные каналы</th><th></th></tr></thead>
+            <table class="data-table users-table">
+              <thead><tr>
+                <th class="col-ad">AD</th>
+                <th class="col-name">Имя</th>
+                <th class="col-email">Email</th>
+                <th class="col-method">Активный метод</th>
+                <th class="col-channels">Настроенные каналы</th>
+                <th class="col-actions"></th>
+              </tr></thead>
               <tbody id="user-rows"></tbody>
             </table>
             <p id="users-empty" class="muted hidden">Ничего не найдено.</p>

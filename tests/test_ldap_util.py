@@ -1,8 +1,10 @@
 from app.ldap_util import (
     LdapServer,
     build_sync_user_filter,
+    decode_ad_display_text,
     domain_suffix_from_base_dn,
     is_group_dn,
+    ldap_entry_attr,
     normalize_bind_user,
     parse_legacy_url,
     parse_servers_raw,
@@ -61,3 +63,34 @@ def test_is_group_dn():
 def test_serialize_roundtrip():
     servers = [LdapServer("dc1", 389), LdapServer("dc2", 389)]
     assert parse_servers_raw(serialize_servers(servers), False) == servers
+
+
+def test_decode_ad_display_text_unicode_escapes():
+    raw = r"\u041a\u043e\u043d\u043e\u043d\u043e\u0432\u0430"
+    assert decode_ad_display_text(raw) == "Кононова"
+
+
+def test_decode_ad_display_text_plain_cyrillic():
+    assert decode_ad_display_text("Кононова Анна") == "Кононова Анна"
+
+
+class _LdapAttr:
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return self.value.encode("unicode_escape").decode("ascii")
+
+
+class _LdapEntry:
+    def __init__(self):
+        self.displayName = _LdapAttr("Кононова")
+        self.sAMAccountName = _LdapAttr("A0561")
+        self.mail = _LdapAttr("")
+
+
+def test_ldap_entry_attr_uses_value_not_str_escape():
+    entry = _LdapEntry()
+    assert ldap_entry_attr(entry, "displayName") == "Кононова"
+    assert ldap_entry_attr(entry, "sAMAccountName") == "A0561"
+    assert ldap_entry_attr(entry, "mail") == ""

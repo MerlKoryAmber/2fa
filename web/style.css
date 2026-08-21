@@ -772,6 +772,34 @@ button.danger-solid:hover {
   border-radius: 4px;
 }
 
+.users-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.users-table .col-ad { width: 12%; }
+.users-table .col-name { width: 22%; }
+.users-table .col-email { width: 16%; }
+.users-table .col-method { width: 14%; }
+.users-table .col-channels { width: 16%; }
+.users-table .col-actions { width: 20%; }
+.users-table td.col-name,
+.users-table td.col-ad,
+.users-table td.col-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.users-table td.row-actions {
+  white-space: nowrap;
+  width: 20%;
+}
+.users-table .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .panel-users-wrap {
   width: 100%;
   min-width: 0;

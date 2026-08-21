@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.ldap_util import decode_ad_display_text
 from app.models import User
 
 
@@ -7,7 +8,7 @@ def user_row(u: User) -> dict:
     return {
         "id": u.id,
         "ad_username": u.ad_username,
-        "display_name": u.display_name,
+        "display_name": decode_ad_display_text(u.display_name),
         "otp_method": u.otp_method,
         "has_totp": bool(u.totp_secret_encrypted),
         "expressms_id": u.expressms_id,
@@ -31,7 +32,7 @@ def list_users(
     for u in rows:
         if ad:
             hay_ad = u.ad_username.lower()
-            hay_name = (u.display_name or "").lower()
+            hay_name = (decode_ad_display_text(u.display_name) or "").lower()
             if ad.lower() not in hay_ad and ad.lower() not in hay_name:
                 continue
         if email:

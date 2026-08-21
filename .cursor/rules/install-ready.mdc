@@ -14,3 +14,5 @@ alwaysApply: true
 Секреты крипто (Fernet, JWT, Postgres) можно генерировать. Учётку панели — нет: дефолт известен, смена в UI.
 
 Проверка «готово» для install: `curl -sk https://127.0.0.1/health` + вход `admin`/`admin` без правок на сервере.
+
+**Доставка на сервер** — git clone (`install.sh --dir` или уже `/opt/2fa`). Обновление кода: `git pull --ff-only` в этом каталоге. Не scp отдельных файлов. Rebuild (`scripts/update.sh`) — только если менялись api/web/radius/compose; новые скрипты в `scripts/`/`migration/` — достаточно pull.

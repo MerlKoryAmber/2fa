@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.ldap_auth import list_ldap_users
+from app.ldap_util import decode_ad_display_text
 from app.models import User
 from app.settings_service import ldap_config
 
@@ -21,7 +22,7 @@ def run_ldap_sync(db: Session, *, by: str = "system") -> dict:
         if row.get("email"):
             user.ldap_email = row["email"]
         if row.get("display_name"):
-            user.display_name = row["display_name"]
+            user.display_name = decode_ad_display_text(row["display_name"])
     db.commit()
     event = "LDAP_SYNC_AUTO" if by == "system" else "LDAP_SYNC"
     audit(db, event, username=by, created=created, total=len(rows))

@@ -1,5 +1,6 @@
 import json
 import re
+from codecs import decode as codecs_decode
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -124,6 +125,54 @@ def server_urls(servers: list[LdapServer], use_ssl: bool) -> list[str]:
 
 
 LDAP_MATCHING_RULE_IN_CHAIN = "1.2.840.113556.1.4.1941"
+
+_UNICODE_ESCAPE_CHUNK = re.compile(r"(?:\\u[0-9a-fA-F]{4})+")
+
+
+def decode_ad_display_text(raw: str | None) -> str | None:
+    """Кириллица из AD, не литералы \\u041a… (str() у ldap3 Attribute / старый sync)."""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    if _UNICODE_ESCAPE_CHUNK.search(s):
+        try:
+            decoded = codecs_decode(s, "unicode_escape")
+            if decoded and decoded != s:
+                s = decoded.strip()
+        except (UnicodeDecodeError, UnicodeError, ValueError):
+            pass
+    return s or None
+
+
+def ldap_entry_attr(entry, name: str) -> str:
+    """Значение атрибута ldap3, не str(Attribute) с ascii-escape."""
+    attr = None
+    if hasattr(entry, name):
+        attr = getattr(entry, name)
+    else:
+        try:
+            attr = entry[name]
+        except Exception:
+            return ""
+    if attr is None or attr == "":
+        return ""
+    val = getattr(attr, "value", None)
+    if val is None:
+        values = getattr(attr, "values", None)
+        if values:
+            val = values[0]
+        else:
+            val = attr
+    if isinstance(val, (list, tuple)):
+        val = val[0] if val else ""
+    if isinstance(val, bytes):
+        val = val.decode("utf-8", errors="replace")
+    if val is None or val == "":
+        return ""
+    return decode_ad_display_text(str(val)) or ""
+
 
 
 def is_group_dn(value: str) -> bool:

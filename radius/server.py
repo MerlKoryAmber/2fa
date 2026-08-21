@@ -153,8 +153,9 @@ def handle(data: bytes, addr) -> bytes | None:
         state = st.decode("utf-8", "replace") if isinstance(st, bytes) else str(st)
 
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
+    result = {"decision": "reject", "reply_message": "Internal error"}
     try:
-        with httpx.Client(timeout=6.0, trust_env=False) as client:
+        with httpx.Client(timeout=4.0, trust_env=False) as client:
             r = client.post(
                 f"{API}/internal/radius/access-request",
                 json=payload,
@@ -165,10 +166,19 @@ def handle(data: bytes, addr) -> bytes | None:
             )
             r.raise_for_status()
             result = r.json()
+    except httpx.TimeoutException:
+        log.exception("API access-request timeout")
+        _notify_api("RADIUS_ERROR", addr[0], username=username, reason="timeout")
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code if exc.response is not None else 0
+        log.exception("API access-request HTTP %s", code)
+        _notify_api("RADIUS_ERROR", addr[0], username=username, reason=f"http_{code}")
+    except httpx.ConnectError:
+        log.exception("API access-request connect")
+        _notify_api("RADIUS_ERROR", addr[0], username=username, reason="connect")
     except Exception:
         log.exception("API call failed")
         _notify_api("RADIUS_ERROR", addr[0], username=username, reason="api")
-        result = {"decision": "reject", "reply_message": "Internal error"}
 
     reply = pkt.CreateReply()
     decision = result.get("decision")

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS_ERROR api: LDAP bind вешал access-request
+
+- Аудит `gateway не достучался до API` = POST `/access-request` не успел (таймаут), не секрет
+- User bind напрямую на первый DC (без service-search); в аудит: `timeout` / `http_*` / `connect`
+- 429 больше не валит gateway: Reject в RADIUS + событие `rate_limit`
+
 ## 2026-08-21 (МСК) — RADIUS: не молчать + ошибки в аудит
 
 - Gateway больше не дропает NAS без ответа (это давало «сервер не ответил»)

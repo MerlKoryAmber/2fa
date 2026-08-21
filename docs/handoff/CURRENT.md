@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~17:30 МСК |
-| Ветка / коммит | `main` **ce22c0c** |
+| Дата | 2026-08-21 ~17:40 МСК |
+| Ветка / коммит | `main` (LDAP user-bind fail-fast + audit timeout) |
 | Lab | `/opt/2fa` (этот сервер), podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -20,7 +20,7 @@
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS:** не silent-drop NAS; аудит `RADIUS_NAS_DENIED` / `RADIUS_BAD_PACKET` / `RADIUS_ERROR`; LDAP timeout 2+3с
+- **RADIUS:** user bind на первый DC без service-search; аудит `timeout`/`http_*` если access-request не успел
 - **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull
 
 ## Хвосты

@@ -203,30 +203,33 @@ def _user_connection(url: str, use_ssl: bool, user: str, password: str) -> Conne
 
 
 def _bind_ad(username: str, password: str, cfg: LdapConfig) -> bool:
+    """Один DC, прямый bind пользователя — без service-search. Иначе RADIUS > timeout NAS."""
     if not cfg.servers:
         return False
-    identity = normalize_bind_user(cfg.bind_user, cfg.base_dn)
-    for url in server_urls(cfg.servers, cfg.use_ssl):
+    urls = server_urls(cfg.servers, cfg.use_ssl)
+    if not urls:
+        return False
+    url = urls[0]
+    attempts = _bind_attempts(username, cfg.base_dn)
+    if not attempts:
+        return False
+    for identity, auth, label in attempts[:2]:
         try:
-            if identity:
-                svc = _open_connection(url, cfg.use_ssl, identity, cfg.bind_password)
-                attr = cfg.user_attr
-                if not svc.search(cfg.base_dn, f"({attr}={_escape(username)})", attributes=["distinguishedName"]):
-                    svc.unbind()
-                    continue
-                dn = svc.entries[0].entry_dn
-                svc.unbind()
-            else:
-                dn = normalize_bind_user(username, cfg.base_dn)
-                if "\\" in username or "@" in username:
-                    dn = username
-            user_conn = _user_connection(url, cfg.use_ssl, dn, password)
-            user_conn.unbind()
+            conn = Connection(
+                _ldap_server(url, cfg.use_ssl),
+                user=identity,
+                password=password,
+                authentication=auth,
+                auto_bind=True,
+                receive_timeout=LDAP_RECEIVE_TIMEOUT,
+            )
+            conn.unbind()
+            log.info("LDAP user bind ok user=%s via %s (%s)", username, url, label)
             return True
         except LDAPException:
-            log.debug("LDAP bind failed on %s for user=%s", url, username, exc_info=True)
+            log.debug("LDAP user bind fail user=%s %s %s", username, url, label, exc_info=True)
             continue
-    log.warning("LDAP auth failed for user=%s on all DC", username)
+    log.warning("LDAP auth failed for user=%s on %s", username, url)
     return False
 
 

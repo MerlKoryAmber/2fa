@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~17:40 МСК |
-| Ветка / коммит | `main` (LDAP user-bind fail-fast + audit timeout) |
+| Ветка / коммит | `main` **013c574** |
 | Lab | `/opt/2fa` (этот сервер), podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |

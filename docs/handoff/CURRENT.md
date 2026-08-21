@@ -10,7 +10,7 @@
 |------|----------|
 | Дата | 2026-08-21 ~17:55 МСК |
 | GitHub | `https://github.com/MerlKoryAmber/2fa` ветка **`main`** |
-| Коммит (docs) | **`3d5f8bb`** (handoff после **`bd4097f`** feat otp_only) |
+| Коммит (docs) | **`2e00155`** (handoff для основного клиента; фича **`bd4097f`** otp_only) |
 | Фича HEAD кода | **`bd4097f`** `feat: RADIUS otp_only — TOTP без LDAP, как LinOTP на UAG` |
 | Локальный workspace | Windows `C:\cursor\2fa` (этот репозиторий) |
 | Сервер | CentOS Stream 9, каталог **`/opt/2fa`**, compose project `2fa_*` |

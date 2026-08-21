@@ -64,7 +64,7 @@ HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`.
 
 | Что | Значение |
 |-----|----------|
-| Admin | `admin` / `changeme` (смените; в панели — «Сменить пароль») |
+| Admin | `admin` / `admin` — сразу после install; смените в панели |
 | Demo seed | user `demo` + TOTP `JBSWY3DPEHPK3PXP` (нужен тот же user в AD для RADIUS) |
 | RADIUS secret | `testing123` (из панели / `.env`) |
 

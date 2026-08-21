@@ -113,7 +113,8 @@ main() {
 Каталог:     $REPO_ROOT
 Панель:      ${pub}/
 Health:      curl -sk https://127.0.0.1/health
-Учётки:      ${REPO_ROOT}/.install-credentials.txt  (если создавался .env)
+Логин:       admin
+Пароль:      admin  (смените в панели после входа)
 Дальше:      Настройки → LDAP / RADIUS / SMTP
 Обновление:  sudo ${REPO_ROOT}/scripts/update.sh
 Удаление:    sudo ${REPO_ROOT}/scripts/uninstall.sh [--purge]

@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~15:32 МСК |
-| Ветка / коммит | `main` @ `002dd60` (PUBLIC_BASE_URL с хоста) |
+| Дата | 2026-08-21 ~15:42 МСК |
+| Ветка / коммит | локально (admin/admin) поверх `bb9dfca` |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -17,6 +17,7 @@
 - Own → **MK 2FA**; F5-вкладки; **worker-otp**; UI Interros
 - **install:** pip `podman-compose` под sudo; `FROM docker.io/...`; **один** образ `localhost/mk2fa-api` на api+workers+beat
 - **install:** `PUBLIC_BASE_URL` с IP текущего хоста, не lab `192.168.0.178`
+- Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 
 ## Хвосты
 

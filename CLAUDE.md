@@ -170,3 +170,4 @@ baseline → dry-run → регресс → apply с бэкапом → пров
 | Handoff / отчёты | `docs/handoff/CURRENT.md`, `docs/agent_reports/<задача>/REPORT.md` |
 | CHANGELOG | `CHANGELOG.md` — перед каждым смысловым push |
 | Верификация | `radclient` / `scripts/radius_demo.py` для RADIUS; API `/health`; curl login; при UI — браузерный сценарий (§4) |
+| **Install** | Сразу рабочий: вход `admin`/`admin`; без lab-IP и без «допилить на сервере». Правило `.cursor/rules/install-ready.mdc` |

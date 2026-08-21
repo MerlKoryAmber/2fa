@@ -219,13 +219,12 @@ ensure_env_file() {
   log "создаю .env из .env.example + сгенерированные секреты"
   cp "$ex" "$envf"
 
-  local fernet pg jwt internal radius admin_pass
+  local fernet pg jwt internal radius
   fernet="$(gen_fernet_key)"
   pg="$(rand_hex 16)"
   jwt="$(rand_hex 24)"
   internal="$(rand_hex 24)"
   radius="$(rand_hex 12)"
-  admin_pass="$(rand_hex 8)"
 
   # portable sed in-place
   _env_set() {
@@ -245,7 +244,8 @@ ensure_env_file() {
   _env_set JWT_SECRET "$jwt"
   _env_set INTERNAL_API_TOKEN "$internal"
   _env_set RADIUS_SECRET "$radius"
-  _env_set ADMIN_PASSWORD "$admin_pass"
+  _env_set ADMIN_USERNAME "admin"
+  _env_set ADMIN_PASSWORD "admin"
   _env_set PUBLIC_BASE_URL "$(suggest_public_base_url)"
   log "PUBLIC_BASE_URL=$(grep '^PUBLIC_BASE_URL=' "$envf" | cut -d= -f2-)"
   # lab defaults из example; LDAP настраивается в панели
@@ -256,8 +256,8 @@ ensure_env_file() {
 
   cat >"${REPO_ROOT}/.install-credentials.txt" <<EOF
 # Сгенерировано $(date -u +%Y-%m-%dT%H:%MZ) — смените после первого входа. Не коммитить.
-ADMIN_USERNAME=$(grep '^ADMIN_USERNAME=' "$envf" | cut -d= -f2-)
-ADMIN_PASSWORD=${admin_pass}
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin
 RADIUS_SECRET=${radius}
 POSTGRES_PASSWORD=${pg}
 EOF

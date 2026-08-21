@@ -19,5 +19,6 @@ alwaysApply: true
 8. Вопросы человеку — через форму с вариантами (§15).
 9. Сначала код/docs репо, не выдумывать (§16).
 10. UI админки — §21 CLAUDE.md: без запоминания параметров; checkbox/radio/select + пояснения.
+11. После install стек сразу рабочий (`admin`/`admin`, без lab-IP). Правило: `.cursor/rules/install-ready.mdc`.
 
 Проектная специфика — секция «(проект) MK 2FA» в CLAUDE.md.

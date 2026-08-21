@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     internal_api_token: str
 
     admin_username: str = "admin"
-    admin_password: str = "changeme"
+    admin_password: str = "admin"
 
     ldap_url: str = ""
     ldap_servers: str = ""

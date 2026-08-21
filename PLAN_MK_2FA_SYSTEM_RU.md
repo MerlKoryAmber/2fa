@@ -382,7 +382,7 @@ sudo ./scripts/uninstall.sh --purge   # + volumes
 
 ## 12) Lab credentials (сменить перед prod)
 
-- Admin: `admin` / `changeme`
+- Admin: `admin` / `admin`
 - Demo: user `demo`, LDAP mock pass `demo`, TOTP secret `JBSWY3DPEHPK3PXP`
 - RADIUS secret: `testing123` (из настроек)
 - URL lab: `https://192.168.0.178/`

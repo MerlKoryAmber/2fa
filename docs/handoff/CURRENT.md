@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~23:12 МСК |
-| GitHub | `main` — push policy+dashboard (см. SHA после push) |
+| Дата | 2026-08-21 ~23:13 МСК |
+| GitHub | `main` @ **`059ec66`** (политики per client + сводка MVP) |
 | Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

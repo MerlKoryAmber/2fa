@@ -9,7 +9,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~20:25 МСК |
-| GitHub | `main` — Message-Authenticator в RADIUS-ответах (после push) |
+| GitHub | `main` @ **`15ba5c8`** (RADIUS Message-Authenticator) |
 | Фича HEAD кода | RADIUS MA + ACL fix + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

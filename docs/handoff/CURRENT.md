@@ -2,81 +2,59 @@
 
 Обновлять **перед каждым `git push`** (и при смене сессии / незавершёнке). Время — **МСК**.
 
-Следующая сессия (основной клиент Cursor): **этот файл + `CHANGELOG.md` верх + `docs/adr/0001-radius-otp-only.md`**. Код на GitHub `main` уже содержит otp_only.
-
 ## Срез
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~20:45 МСК |
-| GitHub | `main` @ **`07be410`** (Proxy-State + MA first) |
-| Фича HEAD кода | Proxy-State echo + host-network + MA + otp_only |
+| Дата | 2026-08-21 ~20:50 МСК |
+| GitHub | `main` @ **`07be410`** (Proxy-State + MA first); tip docs после приёмки |
+| Фича HEAD кода | otp_only + host-network + MA first + Proxy-State |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
-| LinOTP → тест | **импорт утром 21.08** |
-
+| LinOTP → тест | импорт утром 21.08 |
 | Вход панели | `admin` / `admin`, форма пустая |
-| Автор коммитов | `MerlKory <llevelamoney@gmail.com>` через env, не `git config` |
-| Push | только по команде Merl; **не** `git add .`; Windows git: `C:\Program Files\Git\cmd` |
+| Push | только по команде Merl; **не** `git add .` |
 
-## Живой стенд (не закрыто)
+## Живой стенд — ПРИНЯТО (21.08 ~20:49 МСК)
 
-Хост 2FA, firewall **выключен**. NAS VPN: **`172.22.10.231`**. Пользователь **`U1807`**.
+Цепочка: **HCPGW-CL** (`172.22.1.167`) → **NPS proxy** (`172.22.10.231`, policy `u1807`) → **MK 2FA** (`172.22.10.140`).
 
-1. RADIUS пакет **доходит** (secret ок): был аудит `RADIUS_ERROR` / `NAS: 172.22.10.231` / «gateway не достучался до API».
-2. LDAP в панели («Проверить LDAP») — **успех мгновенно**.
-3. Архитектура площадки как **LinOTP + VMware UAG**: 1-й фактор на checkpoint/UAG, на RADIUS уходит **только OTP**, не пароль AD.
-4. MK 2FA до `bd4097f` всегда делал LDAP bind `User-Password` → bind в AD кодом TOTP → timeout NAS.
+- Политика **otp_only**; пользователь **U1807** + TOTP из LinOTP
+- **Верный OTP** → пускает (Accept)
+- **Неверный OTP** → отбивает (Reject), без NPS **117**
 
-**Симптом:** host + MA, всё равно NPS 117 при `reply_len=51` — не вернули **Proxy-State** прокси.
-
-**На сервере после push:**
-
-```bash
-cd /opt/2fa && sudo ./scripts/update.sh
-# в логе radius: proxy_state=True и sent N bytes to 172.22.10.231:...
-```
+Грабли по пути (уже в коде): ACL `parse_allowed_clients`; Message-Authenticator; `network_mode: host`; эхо **Proxy-State** + MA первым attr.
 
 ## Что вошло в код (сессия 21.08)
 
-- RADIUS 403: пустой `${INTERNAL_API_TOKEN}` с хоста; pydantic dotenv vs env; httpx **`trust_env=False`** (корпоративный HTTP_PROXY); `.env` → `/run/mk2fa/host.env`
-- `update.sh`: `source` **после** pull (`exec --no-pull`); unshallow; smoke с `token_len`
-- Gateway не silent-drop NAS; аудит `RADIUS_NAS_DENIED` / `RADIUS_BAD_PACKET` / `RADIUS_ERROR` (`timeout` / `http_*` / `connect`)
-- LDAP user bind на первый DC (без service-search на RADIUS)
-- **`otp_only`**: `api/app/radius_flow.py`, политика UI `web/app.js`, ADR `docs/adr/0001-radius-otp-only.md`
-- Колонка `policies.radius_scheme_preference` с **001**, до этой сессии **не читалась** в flow
+- RADIUS install-ready / 403 / httpx `trust_env=False` / host.env
+- **otp_only** (ADR 0001)
+- host-network radius; Proxy-State; MA first
 
 ## Ключевые файлы
 
 | Зачем | Где |
 |-------|-----|
-| RADIUS Accept OTP без LDAP | `api/app/radius_flow.py` (`OTP_ONLY_SCHEMES`, `_otp_only`, `find_radius_user`) |
-| Политика API | `api/app/routers/admin.py` `PolicyPatch.radius_scheme_preference` |
-| UI политики | `web/app.js` radio «Что приходит на RADIUS» |
-| Gateway UDP | `radius/server.py` |
-| Internal token | `api/app/internal_token.py`, `api/app/routers/radius.py` |
-| Install/update | `scripts/update.sh`, `scripts/lib/common.sh` |
-| ADR | `docs/adr/0001-radius-otp-only.md` |
+| otp_only | `api/app/radius_flow.py`, ADR `docs/adr/0001-radius-otp-only.md` |
+| Gateway UDP | `radius/server.py`, `radius/dictionary` |
+| Compose host net | `docker-compose.yml` (`radius.network_mode: host`) |
 
 ## Хвосты
 
-- **Сервер `/opt/2fa`:** `update.sh` (host-network radius) → VPN: неверный OTP без 117; верный → Accept
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- `PLAN_MK_2FA_SYSTEM_RU.md` §1 канон challenge; otp_only — ADR 0001
+- Опционально: конфиг LinOTP RADIUS для сверки (Merl предлагал)
 
 ## Не делать без команды Merl
 
 - Force-push; `compose down -v` на не-lab
 - Apply миграции токенов / коммит `.env` / дампа LinOTP
 - Менять git config
-- Руками править compose/токен на сервере (install-ready)
 
 ## Следующий агент — старт
 
-1. `git pull --ff-only` в `C:\cursor\2fa` и на `/opt/2fa` если код там отстаёт
-2. Прочитать этот файл + CHANGELOG верх + ADR 0001
-3. После update фикса ACL: VPN + Аудит; не копать LDAP при otp_only
-4. Стиль: caveman RU, Conventional Commits, время МСК
-5. Не `git add .`
+1. `git pull --ff-only`
+2. Handoff + CHANGELOG верх
+3. Стенд VPN U1807 уже зелёный — не чинить RADIUS «с нуля»
+4. Caveman RU; не `git add .`

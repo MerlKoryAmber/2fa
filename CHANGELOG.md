@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — приёмка VPN otp_only на /opt/2fa
+
+- HCPGW → NPS → MK 2FA: верный OTP пускает, неверный отбивает (U1807)
+- Закрыты грабли: ACL import, MA, host-network, Proxy-State
+
 ## 2026-08-21 (МСК) — RADIUS: Proxy-State + MA первым
 
 - NPS proxy (HCPGW → NPS → MK 2FA): без эха **Proxy-State** ответ «не свой» → reason **117** при `reply_len=51`

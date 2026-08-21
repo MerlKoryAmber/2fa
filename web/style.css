@@ -773,15 +773,15 @@ button.danger-solid:hover {
 }
 
 .users-table {
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
 }
-.users-table .col-ad { width: 12%; }
-.users-table .col-name { width: 22%; }
-.users-table .col-email { width: 16%; }
-.users-table .col-method { width: 14%; }
-.users-table .col-channels { width: 16%; }
-.users-table .col-actions { width: 20%; }
+.users-table .col-ad { width: 8%; }
+.users-table .col-name { width: 18%; max-width: 14rem; }
+.users-table .col-email { width: 14%; }
+.users-table .col-method { width: 12%; }
+.users-table .col-channels { width: 12%; }
+.users-table .col-actions { width: auto; }
 .users-table td.col-name,
 .users-table td.col-ad,
 .users-table td.col-email {
@@ -789,15 +789,27 @@ button.danger-solid:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.users-table td.row-actions {
-  white-space: nowrap;
-  width: 20%;
-}
+.users-table td.row-actions,
 .users-table .row-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 6px;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+  width: 1%;
+  min-width: max-content;
+  overflow: visible;
+}
+.users-table .row-actions button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.users-table .user-channels {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .panel-users-wrap {

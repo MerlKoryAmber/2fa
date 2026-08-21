@@ -172,6 +172,31 @@ def smtp_config(db: Session) -> SmtpConfig:
     )
 
 
+def smtp_config_for_test(db: Session, overrides: dict) -> SmtpConfig:
+    """Собрать SMTP из формы: несохранённые поля перекрывают БД; пароль — новый или сохранённый."""
+    cfg = smtp_config(db)
+    if overrides.get("smtp_dry_run") is not None:
+        cfg = replace(cfg, dry_run=bool(overrides["smtp_dry_run"]))
+    if overrides.get("smtp_host") is not None:
+        cfg = replace(cfg, host=str(overrides["smtp_host"]))
+    if overrides.get("smtp_port") is not None:
+        port = overrides["smtp_port"]
+        cfg = replace(cfg, port=int(port) if str(port).isdigit() else cfg.port)
+    if overrides.get("smtp_use_ssl") is not None:
+        cfg = replace(cfg, use_ssl=bool(overrides["smtp_use_ssl"]))
+    if overrides.get("smtp_from") is not None:
+        cfg = replace(cfg, from_addr=str(overrides["smtp_from"]))
+    if overrides.get("smtp_username") is not None:
+        cfg = replace(cfg, username=str(overrides["smtp_username"]))
+    if overrides.get("smtp_password"):
+        cfg = replace(cfg, password=str(overrides["smtp_password"]))
+    elif overrides.get("smtp_password_use_stored"):
+        pass  # уже из smtp_config
+    elif "smtp_password" in overrides and overrides["smtp_password"] == "":
+        cfg = replace(cfg, password="")
+    return cfg
+
+
 def ldap_config(db: Session) -> LdapConfig:
     use_ssl = _as_bool(get_raw(db, "ldap.use_ssl"))
     return LdapConfig(

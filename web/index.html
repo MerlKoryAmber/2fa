@@ -264,7 +264,13 @@
           <input id="pwd-new" name="new_password" type="password" autocomplete="new-password" minlength="8" required />
           <p class="field-hint">Минимум 8 символов.</p>
         </div>
+        <div class="field">
+          <label for="pwd-confirm">Повторите новый пароль</label>
+          <input id="pwd-confirm" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required />
+          <p class="field-hint">Должен совпадать с новым паролем.</p>
+        </div>
         <p id="pwd-err" class="err"></p>
+        <p id="pwd-ok" class="field-hint hidden"></p>
         <div class="modal-actions">
           <button type="button" id="pwd-cancel" class="ghost btn-sm">Отмена</button>
           <button type="submit" class="btn-sm">Сохранить</button>

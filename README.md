@@ -75,7 +75,7 @@ HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`.
 Админка в UI: бренд **MK 2FA** (локальные шрифты/логотип в `web/assets/`).  
 Боковая панель: **Сводка → Токены → Пользователи → Политика → Аудит → Настройки**.
 
-- **Настройки:** LDAP (несколько DC, OU/группа sync), RADIUS (secret, allowed NAS), ExpressMS, SMTP (шаблон приглашения), Приложение (`public_base_url`), Telegram, **Сертификаты** (HTTPS cert+key, root CA).
+- **Настройки:** LDAP (несколько DC, OU/группа sync), RADIUS (secret, allowed NAS), ExpressMS, SMTP (шаблон + **тест отправки до сохранения**), Приложение (`public_base_url`), Telegram, **Сертификаты** (HTTPS cert+key, root CA).
 - **Пользователи:** авто-sync 30 мин + «Загрузить из LDAP»; фильтры; имя из AD `displayName`; выпуск TOTP; **копировать ссылку** / **отправить приглашение**; модал «Настроить 2FA».
 - **Токены:** enable / disable / revoke (модальное подтверждение).
 - **Аудит:** события и подробности на русском.
@@ -134,6 +134,7 @@ Mock LDAP **удалён** — только реальный AD.
 ## ExpressMS / Telegram / SMTP
 
 Вкладки в настройках. Lab: dry-run по умолчанию (код в лог **worker-otp**, без реальной отправки).
+SMTP: кнопка **«Отправить тест»** шлёт письмо по полям формы **до** «Сохранить» (даже при Dry-run в форме).
 Обновление каналов OTP: пересобрать/recreate только `worker-otp` — api/radius/web/LDAP-worker не трогать.
 
 ```

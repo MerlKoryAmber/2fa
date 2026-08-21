@@ -6,9 +6,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~21:38 МСК |
-| GitHub | `main` @ **`8d3b9c9`** (fix DOMAIN\user bind) |
-| Фича HEAD кода | otp_only стенд + fix normalize_bind_user |
+| Дата | 2026-08-21 ~22:13 МСК |
+| GitHub | `main` — push SMTP тест + confirm пароля (см. SHA после push) |
+| Фича HEAD кода | otp_only + SMTP test-send + confirm смены пароля |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
@@ -31,6 +31,8 @@
 - RADIUS install-ready / 403 / httpx `trust_env=False` / host.env
 - **otp_only** (ADR 0001)
 - host-network radius; Proxy-State; MA first
+- **SMTP:** `POST /api/settings/test-smtp` + UI «Отправить тест» до save; STARTTLS при выкл. SSL
+- **UI:** смена пароля — повтор ввода + успех без браузерного `alert`
 
 ## Ключевые файлы
 
@@ -39,6 +41,7 @@
 | otp_only | `api/app/radius_flow.py`, ADR `docs/adr/0001-radius-otp-only.md` |
 | Gateway UDP | `radius/server.py`, `radius/dictionary` |
 | Compose host net | `docker-compose.yml` (`radius.network_mode: host`) |
+| SMTP тест | `api/app/mail_service.py`, `api/app/routers/settings.py`, вкладка SMTP в `web/app.js` |
 
 ## Хвосты
 

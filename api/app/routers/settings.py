@@ -7,6 +7,7 @@ from app.db import get_db
 from app.ldap_auth import run_ldap_test
 from app.routers.auth import require_roles
 from app.rbac import ROLE_ADMIN
+from app.mail_service import run_smtp_test
 from app.settings_service import (
     apply_ldap_servers,
     apply_settings_patch,
@@ -14,6 +15,7 @@ from app.settings_service import (
     ldap_config_for_test,
     radius_config,
     settings_public_full,
+    smtp_config_for_test,
 )
 from app.tls_service import save_root_ca, save_web_tls
 
@@ -68,6 +70,18 @@ class TestLdapIn(BaseModel):
     ldap_bind_use_stored: bool | None = None
 
 
+class TestSmtpIn(BaseModel):
+    to_addr: str
+    smtp_dry_run: bool | None = None
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_use_ssl: bool | None = None
+    smtp_from: str | None = None
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_password_use_stored: bool | None = None
+
+
 class TlsWebIn(BaseModel):
     cert_pem: str
     key_pem: str
@@ -104,6 +118,13 @@ def test_ldap(body: TestLdapIn, db: Session = Depends(get_db)):
         overrides["ldap_servers"] = [s.model_dump() for s in body.ldap_servers]
     cfg = ldap_config_for_test(db, overrides)
     return run_ldap_test(cfg, body.username, body.password, overrides)
+
+
+@router.post("/test-smtp")
+def test_smtp(body: TestSmtpIn, db: Session = Depends(get_db)):
+    overrides = body.model_dump(exclude_unset=True, exclude={"to_addr"})
+    cfg = smtp_config_for_test(db, overrides)
+    return run_smtp_test(cfg, body.to_addr)
 
 
 @router.get("/radius-preview")

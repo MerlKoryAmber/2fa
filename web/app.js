@@ -219,6 +219,11 @@ $("#change-password-btn")?.addEventListener("click", () => {
   closeUserMenu();
   $("#pwd-overlay").classList.remove("hidden");
   $("#pwd-err").textContent = "";
+  const ok = $("#pwd-ok");
+  if (ok) {
+    ok.textContent = "";
+    ok.classList.add("hidden");
+  }
   $("#pwd-form").reset();
 });
 $("#logout")?.addEventListener("click", () => closeUserMenu());
@@ -533,12 +538,35 @@ function collectLdapTestBody(form) {
   return body;
 }
 
-function formatLdapTestLog(out) {
+function collectSmtpTestBody(form) {
+  const body = {
+    to_addr: form.elements.test_smtp_to?.value?.trim() || "",
+    smtp_dry_run: form.elements.smtp_dry_run?.checked ?? false,
+    smtp_host: form.elements.smtp_host?.value ?? "",
+    smtp_port: Number(form.elements.smtp_port?.value || 587),
+    smtp_use_ssl: form.elements.smtp_use_ssl?.checked ?? false,
+    smtp_from: form.elements.smtp_from?.value ?? "",
+    smtp_username: form.elements.smtp_username?.value ?? "",
+  };
+  const pwd = form.elements.smtp_password?.value;
+  if (pwd && pwd !== SECRET_MASK) {
+    body.smtp_password = pwd;
+  } else if (pwd === SECRET_MASK) {
+    body.smtp_password_use_stored = true;
+  }
+  return body;
+}
+
+function formatSettingsTestLog(out) {
   const lines = [...(out.log || [])];
   lines.push("");
   lines.push(out.ok ? "── Итог: успех ──" : "── Итог: ошибка ──");
   if (out.message) lines.push(out.message);
   return lines.join("\n");
+}
+
+function formatLdapTestLog(out) {
+  return formatSettingsTestLog(out);
 }
 
 function checkField(label, name, checked, hint = "") {
@@ -790,13 +818,13 @@ async function loadSettings() {
     <div class="settings-pane hidden" data-settings-pane="smtp">
       <fieldset class="settings-section">
         <legend>SMTP (приглашения)</legend>
-        ${checkField("Dry-run", "smtp_dry_run", s.smtp.dry_run, "Письмо только в лог worker/API, без отправки.")}
-        ${field("Host", "smtp_host", s.smtp.host || "")}
-        ${field("Port", "smtp_port", String(s.smtp.port), "number")}
-        ${checkField("SSL/TLS", "smtp_use_ssl", s.smtp.use_ssl)}
-        ${field("From", "smtp_from", s.smtp.from_addr || "")}
-        ${field("Username", "smtp_username", s.smtp.username || "")}
-        ${secretField("Password", "smtp_password", s.smtp.password_set)}
+        ${checkField("Dry-run", "smtp_dry_run", s.smtp.dry_run, "Письма приглашений только в лог, без отправки. Кнопка «Отправить тест» всегда шлёт по-настоящему по полям формы (ещё до «Сохранить»).")}
+        ${field("Хост", "smtp_host", s.smtp.host || "", "text", "SMTP-сервер, например mail.company.local")}
+        ${field("Порт", "smtp_port", String(s.smtp.port), "number", "Обычно 587 (STARTTLS) или 465 (SSL).")}
+        ${checkField("SSL (порт 465)", "smtp_use_ssl", s.smtp.use_ssl, "Вкл — SMTP_SSL. Выкл — обычный SMTP и STARTTLS (типично для 587).")}
+        ${field("От кого (From)", "smtp_from", s.smtp.from_addr || "", "text", "Адрес отправителя. Если пусто — берётся логин.")}
+        ${field("Логин", "smtp_username", s.smtp.username || "")}
+        ${secretField("Пароль", "smtp_password", s.smtp.password_set)}
         ${field("Тема письма приглашения", "smtp_invite_subject", s.smtp.invite_subject || "", "text", "Пусто — «Приглашение на настройку 2FA». Подстановки: {username}, {invite_url}, {expires_at}.")}
         ${fieldTextarea(
           "Текст письма приглашения",
@@ -805,6 +833,13 @@ async function loadSettings() {
           "Пусто — шаблон по умолчанию. Подстановки: {username}, {invite_url}, {expires_at}.",
           12
         )}
+      </fieldset>
+      <fieldset class="settings-section">
+        <legend>Проверка до сохранения</legend>
+        <p class="field-hint">Используются значения полей выше (в том числе несохранённый пароль). Письмо уходит сразу; настройки в БД не меняются, пока не нажмёте «Сохранить».</p>
+        ${field("Email для теста", "test_smtp_to", "", "email", "Куда отправить тестовое письмо.")}
+        <button type="button" id="test-smtp-btn" class="ghost">Отправить тест</button>
+        <pre id="test-smtp-out" class="test-log muted">Нажмите «Отправить тест» для вывода лога.</pre>
       </fieldset>
     </div>
 
@@ -920,6 +955,24 @@ async function loadSettings() {
         body: JSON.stringify(collectLdapTestBody(form)),
       });
       outEl.textContent = formatLdapTestLog(out);
+      outEl.classList.toggle("muted", out.ok);
+    } catch (e) {
+      outEl.textContent = String(e.message || e);
+      outEl.classList.remove("muted");
+    }
+  });
+
+  $("#test-smtp-btn")?.addEventListener("click", async () => {
+    const form = $("#settings-form");
+    const outEl = $("#test-smtp-out");
+    if (!outEl) return;
+    outEl.textContent = "Отправка…";
+    try {
+      const out = await api("/api/settings/test-smtp", {
+        method: "POST",
+        body: JSON.stringify(collectSmtpTestBody(form)),
+      });
+      outEl.textContent = formatSettingsTestLog(out);
       outEl.classList.toggle("muted", out.ok);
     } catch (e) {
       outEl.textContent = String(e.message || e);
@@ -1419,19 +1472,34 @@ if (token) {
 $("#pwd-cancel")?.addEventListener("click", () => $("#pwd-overlay").classList.add("hidden"));
 $("#pwd-form")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  $("#pwd-err").textContent = "";
+  const errEl = $("#pwd-err");
+  const okEl = $("#pwd-ok");
+  errEl.textContent = "";
+  if (okEl) {
+    okEl.textContent = "";
+    okEl.classList.add("hidden");
+  }
   const fd = new FormData(e.target);
+  const next = String(fd.get("new_password") || "");
+  const confirm = String(fd.get("confirm_password") || "");
+  if (next !== confirm) {
+    errEl.textContent = "Новый пароль и подтверждение не совпадают";
+    return;
+  }
   try {
     await api("/api/me/password", {
       method: "POST",
       body: JSON.stringify({
         current_password: fd.get("current_password"),
-        new_password: fd.get("new_password"),
+        new_password: next,
       }),
     });
-    $("#pwd-overlay").classList.add("hidden");
-    alert("Пароль изменён");
+    if (okEl) {
+      okEl.textContent = "Пароль изменён";
+      okEl.classList.remove("hidden");
+    }
+    setTimeout(() => $("#pwd-overlay").classList.add("hidden"), 900);
   } catch (err) {
-    $("#pwd-err").textContent = String(err.message || err);
+    errEl.textContent = String(err.message || err);
   }
 });

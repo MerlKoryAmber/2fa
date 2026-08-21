@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~22:13 МСК |
-| GitHub | `main` — push SMTP тест + confirm пароля (см. SHA после push) |
+| Дата | 2026-08-21 ~22:14 МСК |
+| GitHub | `main` @ **`1328158`** (SMTP тест + confirm пароля) |
 | Фича HEAD кода | otp_only + SMTP test-send + confirm смены пароля |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

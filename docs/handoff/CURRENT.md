@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~14:55 МСК |
-| Ветка / коммит | `main` — fix install podman-compose PATH (SHA после push) |
+| Ветка / коммит | `main` @ `2e91e7d` (install PATH + qualified FROM) |
 | Lab | `/root/2fa`, podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |

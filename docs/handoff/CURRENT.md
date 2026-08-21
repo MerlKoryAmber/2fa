@@ -6,9 +6,9 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~17:00 МСК |
-| Ветка / коммит | `main` **ceb56e0** |
-| Lab | `/root/2fa`, podman-compose |
+| Дата | 2026-08-21 ~17:10 МСК |
+| Ветка / коммит | `main` **4c1fbd0** |
+| Lab | `/opt/2fa` (этот сервер), podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
 
@@ -16,16 +16,16 @@
 
 - Own → **MK 2FA**; F5-вкладки; **worker-otp**; UI Interros
 - **install:** pip `podman-compose` под sudo; `FROM docker.io/...`; **один** образ `localhost/mk2fa-api` на api+workers+beat
-- **install:** `PUBLIC_BASE_URL` с IP текущего хоста, не lab `192.168.0.178`
+- **install:** `PUBLIC_BASE_URL` с IP текущего хоста, не lab `192.168.0.178`; clone **без** `--depth 1`
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS 403:** токен `/internal/*` из `os.environ`; pydantic env **выше** dotenv; `compose()` export `.env` до interpolate
-- **install-ready:** smoke `GET /internal/radius/config`; при 403 — длины/sha256 env vs settings (не секрет)
+- **RADIUS 403:** токен из смонтированного `/run/mk2fa/host.env` (= хостовый `.env`); pydantic env выше dotenv
+- **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull (иначе старый smoke в памяти)
 
 ## Хвосты
 
-- На уже стоящем `/opt/2fa`: `git pull --ff-only` + `sudo ./scripts/update.sh` (не ручной compose/токен)
+- На уже стоящем `/opt/2fa` **один раз**: `git fetch --unshallow` (если shallow) + `git pull` + `bash scripts/update.sh --no-pull` — пока на сервере старый update.sh без exec
 - LDAP/RADIUS secret/NAS allowlist — настройки площадки в панели, не код
 - Полный `guid_map.csv` → export → import на тест (`scripts/import_linotp_seeds.sh`, не python на хосте)
 - Fail теста: `test_normalize_bind_user_domain_backslash`

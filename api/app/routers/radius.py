@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.audit import audit
 from app.config import settings
 from app.db import get_db
 from app.internal_token import expected_internal_token, got_internal_token
@@ -23,6 +24,16 @@ class RadiusIn(BaseModel):
     password: str
     state: str | None = None
     nas_ip: str | None = None
+
+
+class RadiusEventIn(BaseModel):
+    event_type: str
+    username: str | None = None
+    nas_ip: str | None = None
+    reason: str | None = None
+
+
+_GATEWAY_EVENTS = frozenset({"RADIUS_BAD_PACKET", "RADIUS_ERROR"})
 
 
 def require_internal(request: Request):
@@ -57,9 +68,10 @@ def access_request(
     db: Session = Depends(get_db),
     _: None = Depends(require_internal),
 ):
-    nas = body.nas_ip or request.client.host if request.client else "unknown"
+    nas = body.nas_ip or (request.client.host if request.client else "unknown")
     cfg = radius_config(db)
     if not is_client_allowed(nas, cfg.allowed_rules()):
+        audit(db, "RADIUS_NAS_DENIED", username=body.username, nas_ip=nas, reason="allowlist")
         return {"decision": "reject", "reply_message": "NAS not allowed"}
     enforce_rate_limit(
         "radius",
@@ -67,4 +79,21 @@ def access_request(
         settings.rate_limit_radius_per_minute,
         60,
     )
-    return handle_access_request(db, body.username, body.password, body.state)
+    try:
+        return handle_access_request(db, body.username, body.password, body.state, nas_ip=nas)
+    except Exception:
+        log.exception("radius access-request user=%s nas=%s", body.username, nas)
+        audit(db, "RADIUS_ERROR", username=body.username, nas_ip=nas, reason="internal")
+        return {"decision": "reject", "reply_message": "Internal error"}
+
+
+@router.post("/internal/radius/event")
+def radius_gateway_event(
+    body: RadiusEventIn,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_internal),
+):
+    if body.event_type not in _GATEWAY_EVENTS:
+        raise HTTPException(400, "unknown event")
+    audit(db, body.event_type, username=body.username, nas_ip=body.nas_ip, reason=body.reason)
+    return {"ok": True}

@@ -22,6 +22,9 @@ EVENT_LABELS: dict[str, str] = {
     "RADIUS_ACCEPT": "RADIUS: доступ разрешён",
     "RADIUS_REJECT": "RADIUS: доступ запрещён",
     "RADIUS_CHALLENGE": "RADIUS: запрос 2FA",
+    "RADIUS_NAS_DENIED": "RADIUS: NAS не в списке",
+    "RADIUS_BAD_PACKET": "RADIUS: битый пакет / неверный secret",
+    "RADIUS_ERROR": "RADIUS: внутренняя ошибка",
     "SEND_EXPRESSMS": "OTP отправлен в ExpressMS",
     "SEND_TELEGRAM": "OTP отправлен в Telegram",
     "OTP_OK": "OTP принят",
@@ -38,12 +41,18 @@ META_KEY_LABELS: dict[str, str] = {
     "email": "Email",
     "dry_run": "Dry-run",
     "active": "Токен активен",
+    "nas_ip": "NAS",
     "keys": "Изменённые поля",
 }
 
 REASON_LABELS: dict[str, str] = {
     "username_mismatch": "логин не совпадает с приглашением",
     "ldap_fail": "неверный пароль LDAP",
+    "invalid_credentials": "неверный логин/пароль AD",
+    "allowlist": "IP NAS нет в списке разрешённых",
+    "decode": "не разобрать пакет (secret?)",
+    "api": "gateway не достучался до API",
+    "internal": "ошибка обработки",
     "2fa_disabled": "2FA отключена в политике",
     "not_enrolled": "2FA не настроена",
     "unknown_state": "неизвестный state",

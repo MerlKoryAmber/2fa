@@ -3,7 +3,14 @@ from app.audit_labels import audit_event_label, format_audit_meta
 
 def test_audit_event_label():
     assert audit_event_label("LDAP_SYNC_AUTO") == "Авто-синхронизация LDAP"
+    assert audit_event_label("RADIUS_NAS_DENIED") == "RADIUS: NAS не в списке"
     assert audit_event_label("UNKNOWN_X") == "Unknown x"
+
+
+def test_format_audit_meta_nas():
+    text = format_audit_meta({"nas_ip": "172.22.10.231", "reason": "allowlist"})
+    assert "NAS: 172.22.10.231" in text
+    assert "IP NAS нет в списке" in text
 
 
 def test_format_audit_meta_reason():

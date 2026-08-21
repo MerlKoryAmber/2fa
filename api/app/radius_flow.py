@@ -55,50 +55,54 @@ def _method_allowed(policy: Policy, method: str) -> bool:
     return method.upper() in allowed
 
 
-def handle_access_request(db: Session, username: str, password: str, state: str | None = None) -> dict:
+def handle_access_request(
+    db: Session, username: str, password: str, state: str | None = None, nas_ip: str | None = None
+) -> dict:
     if state:
-        return _complete(db, username, password, state)
-    return _start(db, username, password)
+        return _complete(db, username, password, state, nas_ip=nas_ip)
+    return _start(db, username, password, nas_ip=nas_ip)
 
 
-def _start(db: Session, username: str, password: str) -> dict:
+def _start(db: Session, username: str, password: str, nas_ip: str | None = None) -> dict:
     cfg = ldap_config(db)
     if not authenticate_ldap(username, password, cfg):
-        audit(db, "LDAP_FAIL", username=username)
+        audit(db, "LDAP_FAIL", username=username, nas_ip=nas_ip, reason="invalid_credentials")
         return {"decision": "reject", "reply_message": "Invalid credentials"}
 
     user = get_or_create_user(db, username)
-    audit(db, "LDAP_OK", user_id=user.id, username=username)
+    audit(db, "LDAP_OK", user_id=user.id, username=username, nas_ip=nas_ip)
     policy = default_policy(db)
 
     if not policy.require_2fa:
         touch_last_used(user, db)
-        audit(db, "RADIUS_ACCEPT", user_id=user.id, username=username, reason="2fa_disabled")
+        audit(db, "RADIUS_ACCEPT", user_id=user.id, username=username, reason="2fa_disabled", nas_ip=nas_ip)
         return {"decision": "accept", "reply_message": "OK"}
 
     method = user.otp_method
     if method == "TOTP" and user.totp_secret_encrypted and user.totp_confirmed and _method_allowed(policy, "TOTP"):
-        return _open_challenge(db, user, policy, "TOTP", None)
+        return _open_challenge(db, user, policy, "TOTP", None, nas_ip=nas_ip)
     if method == "EXPRESSMS" and user.expressms_id and _method_allowed(policy, "EXPRESSMS"):
         otp = generate_numeric_otp()
         salt = new_state_token()
         otp_hash = hash_otp(otp, salt) + ":" + salt
         send_expressms_otp.delay(user.expressms_id, otp)
         audit(db, "SEND_EXPRESSMS", user_id=user.id, username=username)
-        return _open_challenge(db, user, policy, "EXPRESSMS", otp_hash)
+        return _open_challenge(db, user, policy, "EXPRESSMS", otp_hash, nas_ip=nas_ip)
     if method == "TELEGRAM" and user.telegram_chat_id and _method_allowed(policy, "TELEGRAM"):
         otp = generate_numeric_otp()
         salt = new_state_token()
         otp_hash = hash_otp(otp, salt) + ":" + salt
         send_telegram_otp.delay(user.telegram_chat_id, otp)
         audit(db, "SEND_TELEGRAM", user_id=user.id, username=username)
-        return _open_challenge(db, user, policy, "TELEGRAM", otp_hash)
+        return _open_challenge(db, user, policy, "TELEGRAM", otp_hash, nas_ip=nas_ip)
 
-    audit(db, "RADIUS_REJECT", user_id=user.id, username=username, reason="not_enrolled")
+    audit(db, "RADIUS_REJECT", user_id=user.id, username=username, reason="not_enrolled", nas_ip=nas_ip)
     return {"decision": "reject", "reply_message": "2FA is not enrolled"}
 
 
-def _open_challenge(db: Session, user: User, policy: Policy, method: str, otp_hash: str | None) -> dict:
+def _open_challenge(
+    db: Session, user: User, policy: Policy, method: str, otp_hash: str | None, nas_ip: str | None = None
+) -> dict:
     state = new_state_token()
     ttl = policy.challenge_ttl_seconds
     otp_ttl = policy.otp_ttl_seconds
@@ -119,7 +123,7 @@ def _open_challenge(db: Session, user: User, policy: Policy, method: str, otp_ha
         "TELEGRAM": "Enter OTP from Telegram",
     }
     msg = messages.get(method, "Enter OTP")
-    audit(db, "RADIUS_CHALLENGE", user_id=user.id, username=user.ad_username, method=method)
+    audit(db, "RADIUS_CHALLENGE", user_id=user.id, username=user.ad_username, method=method, nas_ip=nas_ip)
     return {"decision": "challenge", "state": state, "reply_message": msg}
 
 
@@ -128,7 +132,7 @@ def _consume(row: OtpChallenge, db: Session) -> None:
     db.commit()
 
 
-def _complete(db: Session, username: str, otp: str, state: str) -> dict:
+def _complete(db: Session, username: str, otp: str, state: str, nas_ip: str | None = None) -> dict:
     row = db.query(OtpChallenge).filter(OtpChallenge.state_token == state).first()
     if not row:
         audit(db, "OTP_FAIL", username=username, reason="unknown_state")
@@ -175,5 +179,5 @@ def _complete(db: Session, username: str, otp: str, state: str) -> dict:
     db.commit()
     touch_last_used(user, db)
     audit(db, "OTP_OK", user_id=user.id, username=username, method=row.method_used)
-    audit(db, "RADIUS_ACCEPT", user_id=user.id, username=username)
+    audit(db, "RADIUS_ACCEPT", user_id=user.id, username=username, nas_ip=nas_ip)
     return {"decision": "accept", "reply_message": "OK"}

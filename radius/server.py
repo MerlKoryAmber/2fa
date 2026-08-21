@@ -114,12 +114,35 @@ def _pw(pkt: AuthPacket) -> str:
         return raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
 
 
+def _notify_api(event_type: str, nas_ip: str, username: str = "", reason: str = "") -> None:
+    try:
+        with httpx.Client(timeout=2.0, trust_env=False) as client:
+            client.post(
+                f"{API}/internal/radius/event",
+                json={
+                    "event_type": event_type,
+                    "username": username or None,
+                    "nas_ip": nas_ip,
+                    "reason": reason,
+                },
+                headers={
+                    "X-Internal-Token": _internal_token(),
+                    "Authorization": f"Bearer {_internal_token()}",
+                },
+            )
+    except Exception:
+        log.exception("audit event %s failed", event_type)
+
+
 def handle(data: bytes, addr) -> bytes | None:
-    secret, allowed = _refresh_runtime()
-    if not _is_allowed(addr[0], allowed):
-        log.warning("rejected NAS %s (not in allowlist)", addr[0])
+    secret, _allowed = _refresh_runtime()
+    try:
+        pkt = AuthPacket(dict=DICT, secret=secret, packet=data)
+    except Exception:
+        log.exception("bad RADIUS packet from %s (часто неверный shared secret)", addr[0])
+        _notify_api("RADIUS_BAD_PACKET", addr[0], reason="decode")
         return None
-    pkt = AuthPacket(dict=DICT, secret=secret, packet=data)
+
     username = pkt["User-Name"][0] if "User-Name" in pkt else ""
     if isinstance(username, bytes):
         username = username.decode("utf-8", "replace")
@@ -131,7 +154,7 @@ def handle(data: bytes, addr) -> bytes | None:
 
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
     try:
-        with httpx.Client(timeout=8.0, trust_env=False) as client:
+        with httpx.Client(timeout=6.0, trust_env=False) as client:
             r = client.post(
                 f"{API}/internal/radius/access-request",
                 json=payload,
@@ -144,6 +167,7 @@ def handle(data: bytes, addr) -> bytes | None:
             result = r.json()
     except Exception:
         log.exception("API call failed")
+        _notify_api("RADIUS_ERROR", addr[0], username=username, reason="api")
         result = {"decision": "reject", "reply_message": "Internal error"}
 
     reply = pkt.CreateReply()

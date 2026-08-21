@@ -768,12 +768,12 @@ async function loadSettings() {
     <div class="settings-pane hidden" data-settings-pane="radius">
       <fieldset class="settings-section">
         <legend>RADIUS</legend>
-        ${secretField("Общий секрет", "radius_shared_secret", s.radius.shared_secret_set, "не менять", "Shared secret между NAS и RADIUS gateway.")}
+        ${secretField("Общий секрет", "radius_shared_secret", s.radius.shared_secret_set, "не менять", "Должен буква в букву совпасть с secret на VPN/NAS. Иначе NAS пишет «сервер не ответил».")}
         ${field("Порт", "radius_port", String(s.radius.port), "number", "Информационно; UDP-порт задаётся в compose.")}
         <div class="field">
           <label for="radius_allowed_clients">Разрешённые NAS (IP/CIDR)</label>
           <textarea id="radius_allowed_clients" name="radius_allowed_clients" placeholder="192.168.1.10&#10;10.0.0.0/8">${esc(s.radius.allowed_clients || "")}</textarea>
-          <p class="field-hint">По одному адресу или подсети на строку. Пусто — принимать с любого IP.</p>
+          <p class="field-hint">По одному адресу или подсети на строку. <strong>Пусто — любой NAS</strong>. Если список не пуст, IP VPN (кто шлёт RADIUS) обязан быть в списке, иначе отказ.</p>
         </div>
       </fieldset>
     </div>

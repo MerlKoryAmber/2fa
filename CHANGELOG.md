@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS: не молчать + ошибки в аудит
+
+- Gateway больше не дропает NAS без ответа (это давало «сервер не ответил»)
+- Аудит: `RADIUS_NAS_DENIED`, `RADIUS_BAD_PACKET` (secret), `RADIUS_ERROR`, LDAP_FAIL с NAS
+- LDAP timeout 2+3 с, чтобы NAS не ждал дольше своего таймера
+
 ## 2026-08-21 (МСК) — RADIUS 403: httpx ходил в HTTP_PROXY
 
 - Токен совпадал (48 / один sha), `host.env` смонтирован — секрет ни при чём

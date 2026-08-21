@@ -21,8 +21,8 @@ from app.settings_service import LdapConfig
 ensure_md4()
 log = logging.getLogger(__name__)
 
-LDAP_CONNECT_TIMEOUT = 4
-LDAP_RECEIVE_TIMEOUT = 5
+LDAP_CONNECT_TIMEOUT = 2
+LDAP_RECEIVE_TIMEOUT = 3
 
 
 def _ldap_tls() -> Tls:

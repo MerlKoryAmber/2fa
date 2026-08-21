@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~17:20 МСК |
-| Ветка / коммит | `main` **b8079bb** |
+| Дата | 2026-08-21 ~17:30 МСК |
+| Ветка / коммит | `main` (RADIUS audit + не молчать на NAS) |
 | Lab | `/opt/2fa` (этот сервер), podman-compose |
 | Alembic head | **007** |
 | UI | **MK 2FA**; hash-вкладки; крупное меню сайдбара |
@@ -20,7 +20,7 @@
 - Форма входа пустая; канон **`admin` / `admin`** сразу после install (правило install-ready)
 - **UI:** displayName из AD — кириллица (не `\\u041a`); колонка имя не раздувает таблицу
 - **RADIUS:** LDAP bind без schema ALL + timeout; firewalld/ufw 1812/udp в install **и** update
-- **RADIUS 403:** токен из `/run/mk2fa/host.env`; httpx `trust_env=False` (не корпоративный HTTP_PROXY); 403 тело `got_len`/`exp_len`
+- **RADIUS:** не silent-drop NAS; аудит `RADIUS_NAS_DENIED` / `RADIUS_BAD_PACKET` / `RADIUS_ERROR`; LDAP timeout 2+3с
 - **update.sh:** unshallow + не глотать fetch + `exec --no-pull` после pull
 
 ## Хвосты

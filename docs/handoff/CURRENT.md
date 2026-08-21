@@ -9,7 +9,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~20:38 МСК |
-| GitHub | `main` — radius `network_mode: host` (после push) |
+| GitHub | `main` @ **`01c8d1e`** (RADIUS network_mode: host) |
 | Фича HEAD кода | host-network RADIUS + MA + ACL + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

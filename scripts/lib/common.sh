@@ -377,9 +377,10 @@ def tok():
     return (os.environ.get('INTERNAL_API_TOKEN') or '').strip().strip(chr(34)).strip(chr(39))
 
 t = tok()
-print('token_len', len(t), 'file', os.path.isfile('/run/mk2fa/host.env'))
+api = (os.environ.get('API_URL') or 'http://127.0.0.1:8000').rstrip('/')
+print('token_len', len(t), 'file', os.path.isfile('/run/mk2fa/host.env'), 'api', api)
 r = httpx.get(
-    'http://api:8000/internal/radius/config',
+    api + '/internal/radius/config',
     headers={'X-Internal-Token': t, 'Authorization': 'Bearer ' + t},
     timeout=10,
     trust_env=False,

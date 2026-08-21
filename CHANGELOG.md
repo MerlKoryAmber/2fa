@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — RADIUS network_mode: host
+
+- После MA: лог `decision=reject reply_len=51`, NPS всё равно **117** — ответ UDP через `ports:`/DNAT не с IP хоста
+- `radius`: `network_mode: host`, `API_URL=http://127.0.0.1:8000` (без `ports:`)
+
 ## 2026-08-21 (МСК) — RADIUS: Message-Authenticator в ответе
 
 - Access-Accept/Reject/Challenge всегда с attr 80 — иначе UAG/NAS тихо дропает пакет, VPN «без ответа» при живом OTP_FAIL в аудите

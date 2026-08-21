@@ -16,7 +16,7 @@ MFA: **LDAP/AD** (1-й фактор) + **TOTP / ExpressMS / Telegram** (2-й) + 
 | **beat** | — | Celery Beat: авто LDAP sync каждые **30 мин** |
 | **db** | — | PostgreSQL 16 |
 | **redis** | — | очередь + rate-limit |
-| **radius** | 1812/udp | pyrad gateway → API |
+| **radius** | 1812/udp | pyrad → API; **`network_mode: host`** (иначе NPS 117: ответ не с IP хоста) |
 
 На хосте: **Podman** + `podman-compose` (не Docker Engine). Lab: `/root/2fa`.
 
@@ -101,7 +101,9 @@ echo User-Name=demo,User-Password=demo | radclient -x 127.0.0.1:1812 auth testin
 python3 scripts/radius_demo.py
 ```
 
-Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник. Secret в панели / `.env` должен совпасть с NAS (VPN/UAG) — это настройка площадки, не правка кода.
+Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник. Secret в панели / `.env` должен совпасть с NAS/NPS (VPN/UAG) — это настройка площадки, не правка кода.
+
+Сервис `radius` слушает UDP **на сети хоста** (`network_mode: host`, API `http://127.0.0.1:8000`). Публикация `1812:1812/udp` через bridge/DNAT ломает путь ответа: в логе `decision=reject`, у NPS reason **117** «server did not respond».
 
 Политика **«Что приходит на RADIUS»**: `challenge` (пароль AD + Challenge) или `otp_only` — только TOTP, LDAP уже на UAG/Check Point (как LinOTP).
 

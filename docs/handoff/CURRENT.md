@@ -8,13 +8,13 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~20:25 МСК |
-| GitHub | `main` @ **`15ba5c8`** (RADIUS Message-Authenticator) |
-| Фича HEAD кода | RADIUS MA + ACL fix + otp_only |
+| Дата | 2026-08-21 ~20:38 МСК |
+| GitHub | `main` — radius `network_mode: host` (после push) |
+| Фича HEAD кода | host-network RADIUS + MA + ACL + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
-| LinOTP → тест | **импорт утром 21.08** (токены на тесте есть) |
+| LinOTP → тест | **импорт утром 21.08** |
 
 | Вход панели | `admin` / `admin`, форма пустая |
 | Автор коммитов | `MerlKory <llevelamoney@gmail.com>` через env, не `git config` |
@@ -29,14 +29,17 @@
 3. Архитектура площадки как **LinOTP + VMware UAG**: 1-й фактор на checkpoint/UAG, на RADIUS уходит **только OTP**, не пароль AD.
 4. MK 2FA до `bd4097f` всегда делал LDAP bind `User-Password` → bind в AD кодом TOTP → timeout NAS.
 
-**На сервере после этого push:**
+**Симптом:** аудит OTP_FAIL + `reply_len=51`, NPS **117** did not respond — UDP DNAT. Фикс: `network_mode: host` для radius.
+
+**На сервере после push:**
 
 ```bash
 cd /opt/2fa
 sudo ./scripts/update.sh
+podman logs --tail 5 2fa_radius_1   # listening; NetworkMode=host
 ```
 
-Политика уже **otp_only** (если включали). LinOTP-токены на тесте **импортированы утром**. Проверка: VPN `U1807` → Аудит `RADIUS_ACCEPT` / `otp_only`. Было «ошибка API (500)» = баг ACL без import.
+Политика **otp_only**. Проверка: неверный OTP → NPS не 117; верный → Accept.
 
 ## Что вошло в код (сессия 21.08)
 
@@ -61,10 +64,10 @@ sudo ./scripts/update.sh
 
 ## Хвосты
 
-- **Сервер `/opt/2fa`:** после push MA — `update.sh` → VPN: неверный OTP должен дать **явный отказ**, не зависание; верный → Accept `otp_only`
+- **Сервер `/opt/2fa`:** `update.sh` (host-network radius) → VPN: неверный OTP без 117; верный → Accept
 - Fail теста: `test_normalize_bind_user_domain_backslash`
 - Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- `PLAN_MK_2FA_SYSTEM_RU.md` §1 всё ещё канон challenge; otp_only — ADR 0001
+- `PLAN_MK_2FA_SYSTEM_RU.md` §1 канон challenge; otp_only — ADR 0001
 
 ## Не делать без команды Merl
 

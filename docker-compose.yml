@@ -116,14 +116,15 @@ services:
   radius:
     build: ./radius
     env_file: .env
+    # RADIUS = UDP: через ports:/DNAT ответ часто уходит не с IP хоста → NPS reason 117
+    # «server did not respond», хотя в логе уже decision=reject. Host network обязателен.
+    network_mode: host
     environment:
-      API_URL: http://api:8000
-      NO_PROXY: api,localhost,127.0.0.1
-      no_proxy: api,localhost,127.0.0.1
+      API_URL: http://127.0.0.1:8000
+      NO_PROXY: localhost,127.0.0.1
+      no_proxy: localhost,127.0.0.1
     volumes:
       - ./.env:/run/mk2fa/host.env:ro,z
-    ports:
-      - "1812:1812/udp"
     depends_on:
       api:
         condition: service_healthy

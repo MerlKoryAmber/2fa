@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — install/update без ручной добивки RADIUS
+
+- `install.sh` / `update.sh`: CRLF в `.env`, firewall 1812/udp, smoke `GET /internal/radius/config` из контейнера radius (не 403)
+- После clone/pull достаточно скрипта — не править compose/токен на каждом сервере
+
+## 2026-08-21 (МСК) — RADIUS 403: токен из .env, не пустой interpolate
+
+- `radius` больше не перебивает `INTERNAL_API_TOKEN`/`RADIUS_SECRET` пустым `${VAR}` с хоста (env_file остаётся источником)
+- сравнение токена со `.strip()` — CRLF в .env не даёт 403
+
+## 2026-08-21 (МСК) — RADIUS: LDAP не вешает NAS, firewall 1812/udp
+
+- LDAP bind для RADIUS: `get_info=NONE`, connect/receive timeout; LDAPS без зависания на schema/CA
+- `install.sh` сам открывает firewalld/ufw: 80, 443, **1812/udp** (раньше только WARN)
+
 ## 2026-08-21 (МСК) — кнопки пользователей в один ряд
 
 - Колонка действий: `nowrap` + ширина по содержимому, не 20% fixed (кнопки больше не столбиком и не оставляют пустоту справа)

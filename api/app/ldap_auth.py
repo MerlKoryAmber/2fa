@@ -1,6 +1,9 @@
 import logging
+import os
+import ssl
+from pathlib import Path
 
-from ldap3 import ALL, NTLM, Connection, Server, Tls
+from ldap3 import NTLM, NONE, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPException
 
 from app.hashlib_md4 import ensure_md4
@@ -17,6 +20,28 @@ from app.settings_service import LdapConfig
 
 ensure_md4()
 log = logging.getLogger(__name__)
+
+LDAP_CONNECT_TIMEOUT = 4
+LDAP_RECEIVE_TIMEOUT = 5
+
+
+def _ldap_tls() -> Tls:
+    """LDAPS: корневой CA из панели, иначе без проверки (корпоративный AD часто с внутренним CA)."""
+    ca = Path(os.environ.get("SSL_DATA_DIR", "/data/ssl")) / "root-ca.crt"
+    if ca.is_file() and ca.stat().st_size > 0:
+        return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=str(ca))
+    return Tls(validate=ssl.CERT_NONE)
+
+
+def _ldap_server(url: str, use_ssl: bool) -> Server:
+    # get_info=NONE: schema ALL на каждый RADIUS-вход вешает NAS (таймаут «сервер не ответил»).
+    return Server(
+        url,
+        use_ssl=use_ssl,
+        get_info=NONE,
+        tls=_ldap_tls() if use_ssl else None,
+        connect_timeout=LDAP_CONNECT_TIMEOUT,
+    )
 
 
 def authenticate_ldap(username: str, password: str, cfg: LdapConfig) -> bool:
@@ -152,7 +177,7 @@ def _open_connection(
     bind_password: str,
     authentication=None,
 ) -> Connection:
-    server = Server(url, use_ssl=use_ssl, get_info=ALL, tls=Tls())
+    server = _ldap_server(url, use_ssl)
     auth = authentication if authentication is not None else (NTLM if bind_uses_ntlm(bind_user) else None)
     return Connection(
         server,
@@ -160,13 +185,21 @@ def _open_connection(
         password=bind_password,
         authentication=auth,
         auto_bind=True,
+        receive_timeout=LDAP_RECEIVE_TIMEOUT,
     )
 
 
 def _user_connection(url: str, use_ssl: bool, user: str, password: str) -> Connection:
-    server = Server(url, use_ssl=use_ssl, get_info=ALL, tls=Tls())
+    server = _ldap_server(url, use_ssl)
     auth = NTLM if bind_uses_ntlm(user) else None
-    return Connection(server, user=user, password=password, authentication=auth, auto_bind=True)
+    return Connection(
+        server,
+        user=user,
+        password=password,
+        authentication=auth,
+        auto_bind=True,
+        receive_timeout=LDAP_RECEIVE_TIMEOUT,
+    )
 
 
 def _bind_ad(username: str, password: str, cfg: LdapConfig) -> bool:

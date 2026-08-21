@@ -89,6 +89,7 @@ main() {
   fi
 
   ensure_env_file
+  normalize_env_file
   open_firewall_hint
 
   log "=== сборка и запуск стека ==="
@@ -98,6 +99,7 @@ main() {
   sleep 3
   alembic_upgrade
   wait_health
+  smoke_internal_radius
 
   local pub detected
   detected="$(suggest_public_base_url)"

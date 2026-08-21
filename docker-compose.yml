@@ -117,8 +117,6 @@ services:
     env_file: .env
     environment:
       API_URL: http://api:8000
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
-      RADIUS_SECRET: ${RADIUS_SECRET}
     ports:
       - "1812:1812/udp"
     depends_on:

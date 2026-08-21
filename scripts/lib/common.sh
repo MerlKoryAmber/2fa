@@ -213,6 +213,7 @@ ensure_env_file() {
 
   if [[ -f "$envf" ]]; then
     log ".env уже есть — не перезаписываю"
+    normalize_env_file
     return 0
   fi
 
@@ -263,6 +264,67 @@ POSTGRES_PASSWORD=${pg}
 EOF
   chmod 600 "${REPO_ROOT}/.install-credentials.txt" 2>/dev/null || true
   log "учётные данные: ${REPO_ROOT}/.install-credentials.txt"
+  normalize_env_file
+}
+
+# CRLF из Windows/notepad ломает X-Internal-Token (403 radius→api).
+normalize_env_file() {
+  local envf="${REPO_ROOT}/.env"
+  [[ -f "$envf" ]] || return 0
+  if grep -q $'\r' "$envf" 2>/dev/null; then
+    log "нормализую CRLF в .env"
+    sed -i 's/\r$//' "$envf"
+  fi
+}
+
+# Контейнер по суффиксу имени: api / radius.
+find_compose_ctr() {
+  local kind="$1"
+  local name=""
+  if have_cmd podman; then
+    name="$(podman ps --format '{{.Names}}' | grep -E "_${kind}(_|$)" | head -1 || true)"
+  fi
+  if [[ -z "$name" ]] && have_cmd docker; then
+    name="$(docker ps --format '{{.Names}}' | grep -E "_${kind}(_|$)" | head -1 || true)"
+  fi
+  printf '%s' "$name"
+}
+
+ctr_exec() {
+  local name="$1"
+  shift
+  if have_cmd podman && podman inspect "$name" >/dev/null 2>&1; then
+    podman exec "$name" "$@"
+    return
+  fi
+  if have_cmd docker && docker inspect "$name" >/dev/null 2>&1; then
+    docker exec "$name" "$@"
+    return
+  fi
+  return 1
+}
+
+# После up: radius должен получить 200 на /internal/radius/config, не 403.
+smoke_internal_radius() {
+  local rad code
+  rad="$(find_compose_ctr radius)"
+  if [[ -z "$rad" ]]; then
+    die "smoke RADIUS: контейнер radius не найден"
+  fi
+  log "smoke: RADIUS → API /internal/radius/config ($rad)"
+  code="$(ctr_exec "$rad" python3 -c "
+import os, sys
+import httpx
+t = (os.environ.get('INTERNAL_API_TOKEN') or '').strip()
+r = httpx.get('http://api:8000/internal/radius/config', headers={'X-Internal-Token': t}, timeout=10)
+print(r.status_code)
+sys.exit(0)
+" 2>/dev/null | tail -1 || true)"
+  if [[ "$code" == "200" ]]; then
+    log "smoke RADIUS→API: 200"
+    return 0
+  fi
+  die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200). Не допиливать руками: git pull + sudo ./scripts/update.sh. Лог: podman logs $rad"
 }
 
 wait_health() {
@@ -330,8 +392,18 @@ alembic_upgrade() {
 open_firewall_hint() {
   log "порты: TCP 80,443 (и опционально 8000); UDP 1812 (RADIUS)"
   if have_cmd firewall-cmd; then
-    warn "firewalld: firewall-cmd --permanent --add-service=http --add-service=https && firewall-cmd --permanent --add-port=1812/udp && firewall-cmd --reload"
+    if firewall-cmd --state >/dev/null 2>&1; then
+      firewall-cmd --permanent --add-service=http --add-service=https >/dev/null || true
+      firewall-cmd --permanent --add-port=1812/udp >/dev/null || true
+      firewall-cmd --reload >/dev/null || true
+      log "firewalld: http, https, 1812/udp открыты"
+    else
+      warn "firewalld не запущен — откройте 80/443/tcp и 1812/udp сами"
+    fi
   elif have_cmd ufw; then
-    warn "ufw: ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 1812/udp && ufw reload"
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+    ufw allow 443/tcp >/dev/null 2>&1 || true
+    ufw allow 1812/udp >/dev/null 2>&1 || true
+    log "ufw: 80, 443, 1812/udp"
   fi
 }

@@ -18,7 +18,7 @@ Usage: update.sh [options]
   -h, --help
 
 Делает полный compose down → build api/radius/web → up -d (иначе на lab новый образ api
-часто не подхватывается). Затем alembic upgrade head и smoke health.
+часто не подхватывается). Затем alembic, health, smoke RADIUS→API.
 EOF
 }
 
@@ -50,11 +50,15 @@ if [[ "$DO_PULL" -eq 1 ]]; then
   fi
 fi
 
+normalize_env_file
+open_firewall_hint
+
 log "=== rebuild стека ==="
 compose_up_build
 sleep 3
 alembic_upgrade
 wait_health
+smoke_internal_radius
 
 log "обновление завершено"
 log "версия миграций: podman exec <api> alembic current"

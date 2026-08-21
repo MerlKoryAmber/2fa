@@ -20,7 +20,9 @@ class RadiusIn(BaseModel):
 
 
 def require_internal(x_internal_token: str | None = Header(default=None)):
-    if x_internal_token != settings.internal_api_token:
+    got = (x_internal_token or "").strip()
+    exp = (settings.internal_api_token or "").strip()
+    if not exp or got != exp:
         raise HTTPException(403, "Forbidden")
 
 

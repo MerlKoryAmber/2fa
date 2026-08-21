@@ -40,8 +40,8 @@ sudo ./scripts/install.sh --skip-pkgs
 
 | Скрипт | Назначение |
 |--------|------------|
-| `scripts/install.sh` | пакеты + `.env` + `compose up --build` + health |
-| `scripts/update.sh` | `git pull --ff-only` + полный rebuild + alembic + health |
+| `scripts/install.sh` | пакеты + `.env` + compose + health + smoke RADIUS→API |
+| `scripts/update.sh` | `git pull --ff-only` + rebuild + alembic + health + smoke RADIUS→API |
 | `scripts/uninstall.sh` | `compose down`; `--purge` удаляет volumes; `--purge --remove-dir` — и каталог |
 
 Сгенерированные пароли (если `.env` создавался впервые): `.install-credentials.txt` (в `.gitignore`).
@@ -99,7 +99,7 @@ echo User-Name=demo,User-Password=demo | radclient -x 127.0.0.1:1812 auth testin
 python3 scripts/radius_demo.py
 ```
 
-Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник.
+Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник. Secret в панели / `.env` должен совпасть с NAS (VPN/UAG) — это настройка площадки, не правка кода.
 
 ## LDAP / AD
 

@@ -13,8 +13,8 @@ log = logging.getLogger("radius")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 API = os.environ.get("API_URL", "http://api:8000")
-TOKEN = os.environ["INTERNAL_API_TOKEN"]
-FALLBACK_SECRET = os.environ.get("RADIUS_SECRET", "testing123").encode()
+TOKEN = os.environ["INTERNAL_API_TOKEN"].strip()
+FALLBACK_SECRET = os.environ.get("RADIUS_SECRET", "testing123").strip().encode()
 LISTEN = os.environ.get("RADIUS_LISTEN", "0.0.0.0")
 PORT = int(os.environ.get("RADIUS_PORT", "1812"))
 DICT = Dictionary(os.path.join(os.path.dirname(__file__), "dictionary"))

@@ -9,7 +9,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-21 ~20:15 МСК |
-| GitHub | `main` — fix ACL `parse_allowed_clients` (после push) |
+| GitHub | `main` @ **`dcc36e5`** (fix ACL http_500) |
 | Фича HEAD кода | fix RADIUS http_500 + otp_only |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-21 (МСК) — handoff для основного клиента Cursor
+
+- `docs/handoff/CURRENT.md`: срез GitHub `3d5f8bb` / фича `bd4097f`, стенд `/opt/2fa`, NAS `172.22.10.231`, хвост `otp_only` на сервере
+- План §1: схема `otp_only` (ADR 0001); alembic таблица до **007**
+
 ## 2026-08-21 (МСК) — RADIUS otp_only как LinOTP/UAG
 
 - Политика «Что приходит на RADIUS»: `challenge` (LDAP + Challenge) или `otp_only` (только TOTP, 1-й фактор уже на NAS)

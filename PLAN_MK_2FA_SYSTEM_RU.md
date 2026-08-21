@@ -1,6 +1,6 @@
 # План разработки MK 2FA (AD + RADIUS + Web + Docker)
 
-_Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с lab на `/root/2fa`_
+_Обновлено: 2026-08-21 ~17:55 МСК — RADIUS `otp_only` (UAG/checkpoint), ADR 0001_
 
 ## 0) Исходные требования (зафиксировано)
 
@@ -10,7 +10,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
   - **OTP по сообщению** через **ExpressMS** (корпоративный мессенджер; интеграция по их API).
   - **OTP по сообщению** через **Telegram** (Bot API: chat_id пользователя, отправка кода ботом).
 - **Web-управление:** админка; **настройки LDAP, RADIUS, SMTP, ExpressMS, Telegram — в панели**, bootstrap через `.env`.
-- **Интеграция с RADIUS:** схема MFA через `Access-Challenge` + `State` (см. §1). **Не привязка к VMware UAG** — любой клиент/NAS с тем же flow.
+- **Интеграция с RADIUS:** схема MFA через `Access-Challenge` + `State` (см. §1) **или** `otp_only` (см. ADR 0001: NAS уже проверил LDAP, `User-Password` = TOTP — UAG / Check Point / LinOTP). **Не привязка только к VMware UAG**.
 - **Enrollment:** админ выпускает TOTP вручную, **копирует ссылку** или шлёт **email-приглашение**; пользователь проходит **LDAP auth** на `/enroll/{token}`, затем QR/TOTP.
 - **Деплой:** Podman Compose на lab; **агент сам rebuild/deploy/migrate** после изменений (правило `.cursor/rules/deploy-lab.mdc`). **`scripts/install.sh` / `update.sh` / `uninstall.sh`** — установка на Linux.
 - **Масштаб:** 100–200 пользователей.
@@ -37,6 +37,10 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 ### Discovery (перед prod)
 
 - На реальном NAS подтвердить OTP в `User-Password`, сохранение `State`, secret, таймауты.
+
+### Схема `otp_only` (UAG / Check Point / LinOTP) — ADR 0001
+
+NAS уже проверил AD. Один `Access-Request`: `User-Name` + `User-Password` = TOTP → сразу Accept/Reject, **без LDAP bind**. Политика панели: «Что приходит на RADIUS». Default в БД — `challenge` (§1 выше).
 
 ---
 
@@ -161,6 +165,7 @@ _Обновлено: 20.08.2026, ~01:55 МСК — синхронизация с
 | 004 | enrollment_invites, ldap_email, enroll_invite_ttl_seconds |
 | **005** | **users.display_name** (из AD) |
 | **006** | **admins.role, is_active, updated_at** (RBAC панели) |
+| **007** | **admins.auth_source** (local / ad) |
 
 ---
 
@@ -326,10 +331,11 @@ sudo ./scripts/uninstall.sh --purge   # + volumes
 ### Качество
 
 - [x] `make verify` (~42–45 тест; стабильный fail: `test_normalize_bind_user_domain_backslash` — не наш функционал)
-- [x] Alembic до **005**
+- [x] Alembic до **007**
 - [ ] UI browser acceptance (§4 CLAUDE.md)
 - [x] `scripts/install.sh` / `update.sh` / `uninstall.sh`
 - [ ] приёмка install на чистой ОС
+- [ ] стенд UAG: политика `otp_only` + VPN `U1807` после `bd4097f`
 
 ---
 

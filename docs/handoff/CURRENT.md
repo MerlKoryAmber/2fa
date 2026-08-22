@@ -7,7 +7,7 @@
 | Поле | Значение |
 |------|----------|
 | Дата | 2026-08-23 ~00:56 МСК |
-| GitHub | `main` — после этого push: docs backlog (см. CHANGELOG 2026-08-23) |
+| GitHub | `main` @ **`7e32f05`** (docs backlog Express / invite / policy IP) |
 | Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP (**код не менялся** 23.08) |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |

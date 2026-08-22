@@ -6,13 +6,13 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-21 ~23:13 МСК |
-| GitHub | `main` @ **`059ec66`** (политики per client + сводка MVP) |
-| Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP |
+| Дата | 2026-08-23 ~00:56 МСК |
+| GitHub | `main` — после этого push: docs backlog (см. CHANGELOG 2026-08-23) |
+| Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP (**код не менялся** 23.08) |
 | Локальный workspace | `/root/2fa` (lab) |
 | Сервер | CentOS Stream 9, **`/opt/2fa`** |
 | Alembic head | **007** |
-| LinOTP → тест | **все пользователи/токены импортированы** (подтверждено Merl 21.08 ~21:13 МСК) |
+| LinOTP → тест | **все пользователи/токены импортированы** (подтверждено Merl 21.08) |
 | Вход панели | `admin` / `admin`, форма пустая |
 | Push | только по команде Merl; **не** `git add .` |
 
@@ -26,50 +26,50 @@
 
 Грабли по пути (уже в коде): ACL `parse_allowed_clients`; Message-Authenticator; `network_mode: host`; эхо **Proxy-State** + MA первым attr.
 
-## Что вошло в код (сессия 21.08)
+## Что вошло (сессия 22–23.08) — только docs
 
-- RADIUS install-ready / 403 / httpx `trust_env=False` / host.env
-- **otp_only** (ADR 0001)
-- host-network radius; Proxy-State; MA first
-- **SMTP:** `POST /api/settings/test-smtp` + UI «Отправить тест» до save; STARTTLS при выкл. SSL
-- **UI:** смена пароля — повтор ввода + успех без браузерного `alert`
-- **Политика per client:** `Policy.scope` + `resolve_policy(nas_ip)` (ADR 0002); UI вкладки + черновик; Default
-- **Сводка MVP:** `/api/stats` → статус, 2FA, RADIUS 24ч, лента (новые сверху)
-- Правила: no-browser-dialogs, no-stand-ips-in-ui
+Исследование / backlog (реализации нет):
+
+| Файл | О чём |
+|------|--------|
+| `docs/backlog/EXPRESS_INTEGRATION.md` | eXpress BotX; кнопки; push; изоляция TOTP; фазы; CP/UAG fallback → **гибкие политики после** push MVP |
+| `docs/backlog/EXTERNAL_INTEGRATION_API.md` | Invite API: ключ+IP; логин+email; ldap/sync; контейнер `integration` |
+| `docs/backlog/PROD_SAFE_DEPLOY.md` | TOTP invariant; клон prod редко (другая команда) |
+| `docs/backlog/RADIUS_POLICY_SOURCE_IP.md` | **Вариант 1 отложено**: прокси + политика по `NAS-IP-Address` (CP otp_only, UAG challenge, failover 2FA) |
+
+Код/стенд VPN — без изменений относительно `059ec66` / приёмки 21.08.
 
 ## Ключевые файлы
 
 | Зачем | Где |
 |-------|-----|
 | otp_only | `api/app/radius_flow.py`, ADR `docs/adr/0001-radius-otp-only.md` |
-| Gateway UDP | `radius/server.py`, `radius/dictionary` |
-| Compose host net | `docker-compose.yml` (`radius.network_mode: host`) |
-| SMTP тест | `api/app/mail_service.py`, `api/app/routers/settings.py`, вкладка SMTP в `web/app.js` |
 | Policy per NAS | `api/app/policy_resolve.py`, ADR `docs/adr/0002-policy-per-radius-client.md` |
-| Сводка | `api/app/dashboard.py`, вкладка «Сводка» в `web/` |
-
-## Как проверять политику per client
-
-См. ADR 0002 §«Как проверять». Кратко: в панели **Политика → Проверка выбора** IP NPS — без смены конфига; VPN регресс Accept/Reject. Две политики — только когда нужен второй клиент.
+| Backlog отложенки | `docs/backlog/*.md` |
+| Сводка | `api/app/dashboard.py` |
 
 ## Хвосты
 
-- Backlog: Telegram `/start`, Discovery NAS, policy OU; вариант B (отдельные worker на канал)
-- Cutover: пилоты ещё юзеров / чеклист вывода LinOTP из боя (когда скажет Merl)
-- Опционально: конфиг LinOTP RADIUS для сверки
+- **Express/BotX (отложено):** `EXPRESS_INTEGRATION.md` — ждать доку готовых решений; порядок: push MVP → гибкие политики; TOTP не ломать
+- **RADIUS policy IP (отложено):** вариант **1** — `RADIUS_POLICY_SOURCE_IP.md`
+- **Внешний API invite (отложено):** `EXTERNAL_INTEGRATION_API.md`
+- **Prod-safe deploy:** `PROD_SAFE_DEPLOY.md`
+- Backlog: Telegram `/start`, Discovery NAS, policy OU
+- Cutover LinOTP — по команде Merl
 
-**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.  
-**Стабильность:** fail `test_normalize_bind_user_domain_backslash` — исправлен (`DOMAIN\\user`).
+**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.
 
 ## Не делать без команды Merl
 
 - Force-push; `compose down -v` на не-lab
 - Apply миграции токенов / коммит `.env` / дампа LinOTP
 - Менять git config
+- **Клон prod VM** — только по согласованию; `PROD_SAFE_DEPLOY.md`
+- Реализация Express / integration API / NAS-IP policy — только по явной задаче
 
 ## Следующий агент — старт
 
 1. `git pull --ff-only`
-2. Handoff + CHANGELOG верх
-3. Стенд VPN U1807 уже зелёный — не чинить RADIUS «с нуля»
+2. Handoff + CHANGELOG верх + `docs/backlog/`
+3. Стенд VPN U1807 зелёный — не чинить RADIUS «с нуля»
 4. Caveman RU; не `git add .`

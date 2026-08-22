@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-23 (МСК) — backlog: Express, integration API, policy IP
+
+- `docs/backlog/`: Express/BotX (push, изоляция TOTP, CP/UAG fallback); внешний invite API; prod-safe deploy; RADIUS policy по `NAS-IP-Address` за прокси (**вариант 1, отложено**)
+- ADR 0002: пометка — match по NAS-IP attr выбран, отложен (CP otp_only / UAG challenge / failover 2FA)
+- Код не менялся
+
 ## 2026-08-21 (МСК) — Политики per client + сводка MVP
 
 - Политика по RADIUS-клиенту (`Policy.scope`, ADR 0002): вкладки, черновик «+ Создать», preview выбора; имя **Default**

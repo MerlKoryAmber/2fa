@@ -43,4 +43,4 @@
 
 - Только map scheme в settings (вариант B) — не покрывает TTL/методы per client.
 - Таблица `radius_clients` + secret (вариант C) — следующий этап.
-- Match по NAS-IP-Address attr за NPS — фаза 2, когда peer один.
+- Match по NAS-IP-Address attr за NPS — **выбрано, отложено** (Merl 2026-08-23): вариант 1; причины — CP otp_only, UAG challenge, failover 2FA через прокси. См. `docs/backlog/RADIUS_POLICY_SOURCE_IP.md`.

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-08-25 (МСК) — smoke update без RADIUS secret в логе
+
+- `update.sh` / `install.sh` smoke `/internal/radius/config`: в вывод только HTTP-код и `secret_set`/`secret_len`, не сам shared secret
+
 ## 2026-08-25 (МСК) — каналы 2FA + сценарии политики
 
 - У пользователя больше нет выбора «активный метод»: доступны каналы TOTP / Express (email AD ± chat_id)

@@ -527,12 +527,24 @@ r = httpx.get(
     trust_env=False,
 )
 print(r.status_code)
-print(r.text[:240])
+# не печатать body: там shared_secret в открытом виде
+try:
+    j = r.json() if r.content else {}
+except Exception:
+    j = {}
+sec = j.get('shared_secret') if isinstance(j, dict) else None
+clients = j.get('allowed_clients') if isinstance(j, dict) else None
+print(
+    'ok_json', isinstance(j, dict),
+    'secret_set', bool(sec),
+    'secret_len', len(sec) if isinstance(sec, str) else 0,
+    'clients', len(clients) if isinstance(clients, list) else 'n/a',
+)
 " 2>&1 || true)"
   log "smoke out: $out"
   code="$(printf '%s\n' "$out" | grep -E '^[0-9]{3}$' | tail -1 || true)"
   if [[ "$code" == "200" ]]; then
-    log "smoke RADIUS→API: 200"
+    log "smoke RADIUS→API: 200 (secret не выводим)"
     return 0
   fi
   api="$(find_compose_ctr api)"

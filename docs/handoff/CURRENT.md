@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-25 ~15:40 МСК |
-| GitHub | `main` (после push — mfa_scenario 009) |
+| Дата | 2026-08-25 ~15:50 МСК |
+| GitHub | `main` (smoke без RADIUS secret в логе) |
 | Локальный workspace | `/root/2fa` |
 | Alembic head | **009** (`mfa_scenario`, `push_wait_seconds`) |
 | Вход панели | `admin` / `admin`, форма пустая |

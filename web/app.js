@@ -490,6 +490,51 @@ function totpStatusText(u) {
 
 let userEditId = null;
 
+function closeIssueModal() {
+  const overlay = $("#issue-overlay");
+  if (overlay) overlay.classList.add("hidden");
+  const body = $("#issue-body");
+  if (body) body.innerHTML = "";
+  const err = $("#issue-err");
+  if (err) err.textContent = "";
+}
+
+async function openIssueTotp(userId, btn) {
+  const overlay = $("#issue-overlay");
+  const body = $("#issue-body");
+  const err = $("#issue-err");
+  if (!overlay || !body) return;
+  err.textContent = "";
+  body.innerHTML = "<p class=\"muted\">Выпускаю…</p>";
+  overlay.classList.remove("hidden");
+  const prev = btn ? btn.textContent : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "…";
+  }
+  try {
+    const out = await api("/api/users/" + userId + "/totp/issue", { method: "POST", body: "{}" });
+    body.innerHTML = `
+      <img class="qr" src="data:image/png;base64,${out.qr_png_base64}" alt="QR" />
+      <p><code id="issue-secret">${esc(out.secret)}</code></p>
+      <p class="field-hint">Скопируйте секрет или покажите QR пользователю.</p>`;
+    loadTokens();
+  } catch (e) {
+    body.innerHTML = "";
+    let msg = String(e.message || e);
+    try {
+      const j = JSON.parse(msg);
+      if (j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+    } catch (_) {}
+    err.textContent = msg.slice(0, 200);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+}
+
 function openUserEdit(user) {
   userEditId = user.id;
   const overlay = $("#user-edit-overlay");
@@ -1249,18 +1294,7 @@ async function loadUsers() {
       b.addEventListener("click", () => openUserEdit(byId[b.dataset.id]))
     );
     $("#user-rows").querySelectorAll(".issue-code").forEach((b) =>
-      b.addEventListener("click", async () => {
-        const out = await api("/api/users/" + b.dataset.id + "/totp/issue", { method: "POST", body: "{}" });
-        $("#issue-modal").classList.remove("hidden");
-        $("#issue-modal").innerHTML = `
-        <h3 class="section-heading">TOTP для пересылки пользователю</h3>
-        <p class="muted">Confirm не требуется — передайте QR/секрет вручную. Токен в статусе pending до confirm пользователем или RADIUS.</p>
-        <img class="qr" src="data:image/png;base64,${out.qr_png_base64}" alt="QR" />
-        <p><code>${esc(out.secret)}</code></p>
-        <button type="button" class="ghost" id="close-issue">Закрыть</button>`;
-        $("#close-issue").addEventListener("click", () => $("#issue-modal").classList.add("hidden"));
-        loadTokens();
-      })
+      b.addEventListener("click", () => openIssueTotp(b.dataset.id, b))
     );
   }
   $("#user-rows").querySelectorAll(".copy-invite").forEach((b) =>
@@ -1315,6 +1349,14 @@ $("#user-edit-cancel").addEventListener("click", closeUserEdit);
 $("#user-edit-overlay").addEventListener("click", (e) => {
   if (e.target === $("#user-edit-overlay")) closeUserEdit();
 });
+const issueClose = $("#issue-close");
+if (issueClose) issueClose.addEventListener("click", closeIssueModal);
+const issueOverlay = $("#issue-overlay");
+if (issueOverlay) {
+  issueOverlay.addEventListener("click", (e) => {
+    if (e.target === issueOverlay) closeIssueModal();
+  });
+}
 $("#user-edit-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!userEditId) return;

@@ -6,50 +6,36 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-25 ~11:32 МСК |
-| GitHub | `main` (после этого push — Express-бот + install) |
+| Дата | 2026-08-25 ~15:15 МСК |
+| GitHub | `main` (после push — фикс «Выпустить код» + Express-бот `1402cf0`) |
 | Локальный workspace | `/root/2fa` |
 | Сервер | CentOS Stream 9; канон `/opt/2fa`; бот на **том же хосте**, что API (`:8030`) |
 | Alembic head | **008** (`policies.expressms_mode`) |
 | Вход панели | `admin` / `admin`, форма пустая |
 | Push | только по команде Merl; **не** `git add .` |
 
-## Что вошло (код, 24–25.08)
+## Что вошло
 
-- `express-bot/`: webhook `/command` (сразу 200), JWT + `notifications/direct/sync`, Approve/Deny, `/start` bind chat
-- API: `/internal/express/bind`, `/internal/express/decision`; Redis hold для RADIUS push
-- Политика `expressms_mode=otp\|push` (default **otp**). TOTP `otp_only` не трогать
-- Compose: сервис `express-bot`, порт **8030**
-- `install.sh` / `update.sh`: спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY`; `compose build express-bot`; firewall 8030/tcp; `--skip-express`
-- UI политики: radio ExpressMS otp/push
+- Express-бот + install/update (коммит `1402cf0`)
+- UI: «Выпустить код» — модалка overlay + ошибки (не панель внизу таблицы)
 
-`BOTX_API_HOST` = CTS/API **отправки**, не listener 8030. «Адрес бота» в Express = `https://<хост-2fa>:8030/command`.
-
-Секреты: `.env` / `.env.express-bot` (gitignore). Не коммитить.
-
-## Живой стенд VPN — ПРИНЯТО (21.08)
-
-HCPGW-CL → NPS proxy → MK 2FA. Политика **otp_only**, U1807. Не ломать RADIUS «с нуля».
+Согласовано (ещё не в коде): юзер = **каналы** (TOTP секрет+confirm / Express по **email из AD**, `/start` опционален); порядок/fallback — **политика**; Telegram — **отложено**.
 
 ## Хвосты
 
-- Заполнить **реальный** `BOTX_API_HOST` на стенде (не путать с `:8030`)
-- Alembic **008** + `compose up express-bot` на hmk2fa
-- Express «Адрес бота» → этот хост `:8030/command`
-- Пользователи: `/start`; политика push только EXPRESSMS
-- **RADIUS policy IP** / invite API / prod clone — отложено, `docs/backlog/`
-- Cutover LinOTP — по команде Merl
+- **Выкат на тест:** pull на `/opt/2fa`, BOT_*, express-bot, alembic 008, сеть 8030, «Адрес бота»
+- Docs/ADR: каналы без «активного метода» + push→TOTP (Deny = reject)
+- Код модели push→TOTP — после приёмки push на тесте (или по команде)
+- Telegram — backlog, не трогать
+- RADIUS policy IP / invite API — отложено
 
 ## Не делать без команды Merl
 
-- Force-push; `compose down -v` на не-lab
-- `update.sh` на живом стенде без явной просьбы (полный rebuild)
-- Коммит `.env` / секретов бота
-- Менять git config
+- Force-push; `compose down -v` на не-lab; полный `update.sh` без просьбы
+- Коммит `.env` / секретов
 
 ## Следующий агент — старт
 
 1. `git pull --ff-only`
-2. Handoff + CHANGELOG верх + alembic **008**
-3. VPN otp_only зелёный — не чинить RADIUS с нуля
-4. Caveman RU; не `git add .`
+2. Выкат бота на тест (п. хвосты)
+3. Caveman RU; не `git add .`

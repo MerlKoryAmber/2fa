@@ -216,7 +216,6 @@
             <p id="users-empty" class="muted hidden">Ничего не найдено.</p>
           </div>
           <div id="enroll" class="hidden panel"></div>
-          <div id="issue-modal" class="hidden panel"></div>
         </section>
         <section id="policy" class="hidden">
           <div class="settings-wrap policy-page">
@@ -254,6 +253,17 @@
           </div>
         </section>
       </main>
+    </div>
+  </div>
+  <div id="issue-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="issue-title">
+    <div class="modal-card modal-card-wide">
+      <h2 id="issue-title" class="modal-title">TOTP для пересылки пользователю</h2>
+      <p id="issue-sub" class="modal-message muted">Confirm не требуется — передайте QR/секрет вручную. Токен pending до confirm пользователем или RADIUS.</p>
+      <div id="issue-body" class="settings-stack"></div>
+      <p id="issue-err" class="err"></p>
+      <div class="modal-actions">
+        <button type="button" id="issue-close" class="btn-sm">Закрыть</button>
+      </div>
     </div>
   </div>
   <div id="user-edit-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="user-edit-title">

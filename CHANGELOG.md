@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-08-25 (МСК) — бот на своём сервере 2FA
+
+- Деплой `express-bot` на **hmk2fa**, не на хост BotX. «Адрес бота»: `hmk2fa:8030/command`. Инструкция: `express-bot/README.md`
+- `install.sh` / `update.sh`: шаг Express-бота (BOT_ID, секрет, BOTX_API_HOST), `compose build express-bot`, firewall 8030/tcp. `--skip-express` — без вопросов
+
+## 2026-08-24 (МСК) — бот Express (push Approve/Deny)
+
+- Сервис `express-bot/`: webhook `/command` (сразу 200), JWT + `notifications/direct/sync`, кнопки Approve/Deny (`silent`), `/start` привязка чата, lookup email в BotX
+- Listener по умолчанию `:8030` (поле «Адрес бота» в Express). CTS/API отправки — `BOTX_API_HOST`
+- API: `/internal/express/bind`, `/internal/express/decision`; политика `expressms_mode=otp|push` (default **otp**, TOTP `otp_only` без изменений)
+- `EXPRESS_BOT_URL` — API → бот (compose: `http://express-bot:8030`). Бот на **hmk2fa**. См. `express-bot/README.md`
+
 ## 2026-08-23 (МСК) — backlog: Express, integration API, policy IP
 
 - `docs/backlog/`: Express/BotX (push, изоляция TOTP, CP/UAG fallback); внешний invite API; prod-safe deploy; RADIUS policy по `NAS-IP-Address` за прокси (**вариант 1, отложено**)

@@ -41,6 +41,7 @@ class PolicyPatch(BaseModel):
     challenge_ttl_seconds: int | None = None
     enroll_invite_ttl_seconds: int | None = None
     radius_scheme_preference: str | None = None
+    expressms_mode: str | None = None
 
 
 class PolicyCreate(BaseModel):
@@ -55,6 +56,7 @@ class PolicyCreate(BaseModel):
     challenge_ttl_seconds: int | None = None
     enroll_invite_ttl_seconds: int | None = None
     radius_scheme_preference: str | None = None
+    expressms_mode: str | None = None
 
 
 class TotpConfirm(BaseModel):
@@ -278,6 +280,9 @@ def create_policy(
         radius_scheme_preference=body.radius_scheme_preference
         if body.radius_scheme_preference is not None
         else (base.radius_scheme_preference if base else "challenge"),
+        expressms_mode=body.expressms_mode
+        if body.expressms_mode is not None
+        else (base.expressms_mode if base else "otp"),
     )
     db.add(row)
     db.commit()

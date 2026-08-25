@@ -254,6 +254,25 @@ suggest_public_base_url() {
   fi
 }
 
+env_file_get() {
+  local key="$1" envf="${REPO_ROOT}/.env"
+  [[ -f "$envf" ]] || return 0
+  grep -E "^${key}=" "$envf" | head -1 | cut -d= -f2- || true
+}
+
+env_file_set() {
+  local key="$1" val="$2" envf="${REPO_ROOT}/.env"
+  [[ -f "$envf" ]] || die "нет $envf"
+  local esc
+  esc="$(printf '%s' "$val" | sed -e 's/[\/&]/\\&/g')"
+  if grep -q "^${key}=" "$envf"; then
+    sed -i.bak "s|^${key}=.*|${key}=${esc}|" "$envf"
+  else
+    printf '%s=%s\n' "$key" "$val" >>"$envf"
+  fi
+  rm -f "${envf}.bak"
+}
+
 ensure_env_file() {
   local envf="${REPO_ROOT}/.env"
   local ex="${REPO_ROOT}/.env.example"
@@ -275,30 +294,16 @@ ensure_env_file() {
   internal="$(rand_hex 24)"
   radius="$(rand_hex 12)"
 
-  # portable sed in-place
-  _env_set() {
-    local key="$1" val="$2"
-    if grep -q "^${key}=" "$envf"; then
-      # escape for sed
-      local esc
-      esc="$(printf '%s' "$val" | sed -e 's/[\/&]/\\&/g')"
-      sed -i.bak "s|^${key}=.*|${key}=${esc}|" "$envf"
-    else
-      printf '%s=%s\n' "$key" "$val" >>"$envf"
-    fi
-  }
-
-  _env_set APP_ENCRYPTION_KEY "$fernet"
-  _env_set POSTGRES_PASSWORD "$pg"
-  _env_set JWT_SECRET "$jwt"
-  _env_set INTERNAL_API_TOKEN "$internal"
-  _env_set RADIUS_SECRET "$radius"
-  _env_set ADMIN_USERNAME "admin"
-  _env_set ADMIN_PASSWORD "admin"
-  _env_set PUBLIC_BASE_URL "$(suggest_public_base_url)"
+  env_file_set APP_ENCRYPTION_KEY "$fernet"
+  env_file_set POSTGRES_PASSWORD "$pg"
+  env_file_set JWT_SECRET "$jwt"
+  env_file_set INTERNAL_API_TOKEN "$internal"
+  env_file_set RADIUS_SECRET "$radius"
+  env_file_set ADMIN_USERNAME "admin"
+  env_file_set ADMIN_PASSWORD "admin"
+  env_file_set PUBLIC_BASE_URL "$(suggest_public_base_url)"
   log "PUBLIC_BASE_URL=$(grep '^PUBLIC_BASE_URL=' "$envf" | cut -d= -f2-)"
   # lab defaults из example; LDAP настраивается в панели
-  rm -f "${envf}.bak"
 
   umask 077
   chmod 600 "$envf" 2>/dev/null || true
@@ -323,6 +328,142 @@ normalize_env_file() {
     log "нормализую CRLF в .env"
     sed -i 's/\r$//' "$envf"
   fi
+}
+
+# Старый .env без ключей бота — дописать пустые/дефолтные.
+ensure_express_env_keys() {
+  local envf="${REPO_ROOT}/.env"
+  [[ -f "$envf" ]] || return 0
+  grep -q '^EXPRESS_BOT_URL=' "$envf" || printf 'EXPRESS_BOT_URL=http://express-bot:8030\n' >>"$envf"
+  grep -q '^BOTX_API_HOST=' "$envf" || printf 'BOTX_API_HOST=\n' >>"$envf"
+  grep -q '^BOT_ID=' "$envf" || printf 'BOT_ID=\n' >>"$envf"
+  grep -q '^BOT_SECRET_KEY=' "$envf" || printf 'BOT_SECRET_KEY=\n' >>"$envf"
+  grep -q '^BOT_APP_ID=' "$envf" || printf 'BOT_APP_ID=push2fa_bot\n' >>"$envf"
+  grep -q '^BOT_LISTEN_PORT=' "$envf" || printf 'BOT_LISTEN_PORT=8030\n' >>"$envf"
+  grep -q '^MK2FA_API_URL=' "$envf" || printf 'MK2FA_API_URL=http://api:8000\n' >>"$envf"
+}
+
+express_bot_configured() {
+  local id host secret
+  id="$(env_file_get BOT_ID)"
+  host="$(env_file_get BOTX_API_HOST)"
+  secret="$(env_file_get BOT_SECRET_KEY)"
+  [[ -n "${id// /}" && -n "${host// /}" && -n "${secret// /}" ]]
+}
+
+_ask_yn() {
+  local prompt="$1" default="${2:-n}" reply yn="y/N"
+  [[ "$default" == [yY] ]] && yn="Y/n"
+  if [[ -r /dev/tty ]]; then
+    printf '[mk2fa] %s [%s]: ' "$prompt" "$yn" >/dev/tty
+    IFS= read -r reply </dev/tty || reply=""
+  elif [[ -t 0 ]]; then
+    printf '[mk2fa] %s [%s]: ' "$prompt" "$yn"
+    IFS= read -r reply || reply=""
+  else
+    reply="$default"
+  fi
+  reply="${reply#"${reply%%[![:space:]]*}"}"
+  reply="${reply%"${reply##*[![:space:]]}"}"
+  if [[ -z "$reply" ]]; then
+    [[ "$default" == [yY] ]] && return 0
+    return 1
+  fi
+  case "$reply" in
+    y|Y|yes|YES|д|Д|да|Да) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+_read_prompt() {
+  local prompt="$1" secret="${2:-0}" out=""
+  if [[ -r /dev/tty ]]; then
+    printf '[mk2fa] %s' "$prompt" >/dev/tty
+    if [[ "$secret" == 1 ]]; then
+      IFS= read -rs out </dev/tty || out=""
+      printf '\n' >/dev/tty
+    else
+      IFS= read -r out </dev/tty || out=""
+    fi
+  elif [[ -t 0 ]]; then
+    printf '[mk2fa] %s' "$prompt"
+    if [[ "$secret" == 1 ]]; then
+      IFS= read -rs out || out=""
+      printf '\n'
+    else
+      IFS= read -r out || out=""
+    fi
+  fi
+  printf '%s' "$out"
+}
+
+# SKIP_EXPRESS=1 или --skip-express: не спрашивать.
+# Без TTY: не блокировать; если ключи пустые — предупреждение.
+configure_express_bot() {
+  ensure_express_env_keys
+  if [[ "${SKIP_EXPRESS:-0}" == 1 ]]; then
+    log "Express-бот: пропуск настройки (--skip-express)"
+    return 0
+  fi
+
+  local can_ask=0
+  [[ -r /dev/tty || -t 0 ]] && can_ask=1
+
+  if [[ "$can_ask" -eq 0 ]]; then
+    if express_bot_configured; then
+      log "Express-бот: BOT_ID / BOTX_API_HOST уже в .env"
+    else
+      warn "нет TTY — параметры Express не спрашиваю. Заполните BOT_ID, BOT_SECRET_KEY, BOTX_API_HOST в .env и снова update.sh"
+    fi
+    return 0
+  fi
+
+  log "--- Express-бот (push Approve/Deny) ---"
+  log "слушает этот хост :8030; «Адрес бота» в Express: https://<этот-хост>:8030/command"
+  log "BOTX_API_HOST — CTS/API отправки (не порт 8030)"
+
+  if express_bot_configured; then
+    _ask_yn "Параметры бота уже в .env. Изменить?" n || {
+      log "Express-бот: оставляю текущие параметры"
+      return 0
+    }
+  else
+    _ask_yn "Настроить Express-бота (BOT_ID, секрет, BOTX_API_HOST)?" y || {
+      log "Express-бот: без параметров (образ всё равно соберётся)"
+      return 0
+    }
+  fi
+
+  local cur_host cur_id cur_app in_host in_id in_secret in_app
+  cur_host="$(env_file_get BOTX_API_HOST)"
+  cur_id="$(env_file_get BOT_ID)"
+  cur_app="$(env_file_get BOT_APP_ID)"
+  [[ -n "$cur_app" ]] || cur_app="push2fa_bot"
+
+  in_host="$(_read_prompt "BOTX_API_HOST [${cur_host}]: ")"
+  [[ -n "$in_host" ]] || in_host="$cur_host"
+  in_id="$(_read_prompt "BOT_ID [${cur_id}]: ")"
+  [[ -n "$in_id" ]] || in_id="$cur_id"
+  in_secret="$(_read_prompt "BOT_SECRET_KEY (пусто = не менять): " 1)"
+  in_app="$(_read_prompt "BOT_APP_ID [${cur_app}]: ")"
+  [[ -n "$in_app" ]] || in_app="$cur_app"
+
+  [[ -n "${in_host// /}" ]] || die "BOTX_API_HOST пустой"
+  [[ -n "${in_id// /}" ]] || die "BOT_ID пустой"
+  if [[ -z "$in_secret" ]]; then
+    in_secret="$(env_file_get BOT_SECRET_KEY)"
+  fi
+  [[ -n "${in_secret// /}" ]] || die "BOT_SECRET_KEY пустой"
+
+  env_file_set BOTX_API_HOST "$in_host"
+  env_file_set BOT_ID "$in_id"
+  env_file_set BOT_SECRET_KEY "$in_secret"
+  env_file_set BOT_APP_ID "$in_app"
+  env_file_set EXPRESS_BOT_URL "http://express-bot:8030"
+  env_file_set MK2FA_API_URL "http://api:8000"
+  env_file_set BOT_LISTEN_PORT "8030"
+  chmod 600 "${REPO_ROOT}/.env" 2>/dev/null || true
+  log "Express-бот: параметры записаны в .env (секрет не печатаю)"
 }
 
 # Контейнер по суффиксу имени: api / radius.
@@ -445,10 +586,11 @@ compose_up_build() {
   log "podman/docker compose: down, затем build + up (первая сборка тянет docker.io, минуты, вывод без буфера)"
   compose down || true
   # Один build ./api (worker/otp/beat берут localhost/mk2fa-api) — иначе 4 параллельных COMMIT и Prepare images failed
-  log "podman/docker compose: build api, затем radius, затем web (по очереди — меньше гонок/RAM)"
+  log "podman/docker compose: build api, затем radius, web, express-bot (по очереди — меньше гонок/RAM)"
   compose build api
   compose build radius
   compose build web
+  compose build express-bot
   log "podman/docker compose: up -d"
   compose up -d
 }
@@ -480,20 +622,22 @@ alembic_upgrade() {
 }
 
 open_firewall_hint() {
-  log "порты: TCP 80,443 (и опционально 8000); UDP 1812 (RADIUS)"
+  log "порты: TCP 80,443,8030 (Express-бот); UDP 1812 (RADIUS)"
   if have_cmd firewall-cmd; then
     if firewall-cmd --state >/dev/null 2>&1; then
       firewall-cmd --permanent --add-service=http --add-service=https >/dev/null || true
       firewall-cmd --permanent --add-port=1812/udp >/dev/null || true
+      firewall-cmd --permanent --add-port=8030/tcp >/dev/null || true
       firewall-cmd --reload >/dev/null || true
-      log "firewalld: http, https, 1812/udp открыты"
+      log "firewalld: http, https, 8030/tcp, 1812/udp открыты"
     else
-      warn "firewalld не запущен — откройте 80/443/tcp и 1812/udp сами"
+      warn "firewalld не запущен — откройте 80/443/8030/tcp и 1812/udp сами"
     fi
   elif have_cmd ufw; then
     ufw allow 80/tcp >/dev/null 2>&1 || true
     ufw allow 443/tcp >/dev/null 2>&1 || true
+    ufw allow 8030/tcp >/dev/null 2>&1 || true
     ufw allow 1812/udp >/dev/null 2>&1 || true
-    log "ufw: 80, 443, 1812/udp"
+    log "ufw: 80, 443, 8030/tcp, 1812/udp"
   fi
 }

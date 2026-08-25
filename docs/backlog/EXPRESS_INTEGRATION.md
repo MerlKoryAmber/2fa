@@ -1,10 +1,11 @@
 # Express (eXpress) / BotX — backlog интеграции 2FA
 
-_Зафиксировано: 2026-08-22 ~12:00 МСК. Обновлено: **2026-08-22 ~12:15 МСК** (изоляция деплоя, prod TOTP). Статус: **исследование**, ждём доку Merl по **готовым решениям** в компании._
+_Зафиксировано: 2026-08-22 ~12:00 МСК. Обновлено: **2026-08-25 ~11:10 МСК**. Статус: **код бота в репо** (`express-bot/`). Деплой на hmk2fa.
 
 ## Контекст у Merl
 
 - В компании **локальная установка eXpress** + **свой BotX** (on-prem, не облако).
+- MK 2FA + процесс бота: **`hmk2fa.interros.ru`**, listener `:8030` («Адрес бота» в Express). CTS/API **отправки** — `BOTX_API_HOST` (настраиваемое). Не ставить бота на хост платформы BotX.
 - Сайт продукта: https://express.ms/
 - Цель (потенциальная): OTP и/или **push с кнопками** Approve/Deny через корпоративный мессенджер вместо/рядом с TOTP.
 
@@ -305,26 +306,120 @@ TOTP-путь для пользователей **без** Express **не тро
 
 ---
 
+## Готовое решение компании: `kteam-express`
+
+Репо: https://github.com/v-bondarev/kteam-express.git (private). Снимок на lab: `/root/kteam-express-main`.
+
+Это **корпоративный AI-помощник** (Bitrix, Directum, Jira, SmartApp, AD). **Не** сервис 2FA. Код бота в Express **не создаёт** — только обслуживает уже зарегистрированного.
+
+### Как бот появляется (вне git)
+
+1. Админ eXpress/CTS заводит чат-бота → выдаёт **`BOT_ID`** (UUID) и **`BOT_SECRET_KEY`**.
+2. В карточке бота URL webhook = HTTPS нашего сервиса (`POST /command`).
+3. Секреты в `.env` процесса, не в git (`.env.example`: `BOT_ID`, `BOT_SECRET_KEY`, `BOTX_API_HOST`, `BOTX_PROTOCOL_VERSION=4`).
+4. Для 2FA — **отдельный бот**, не вселять push в этот помощник.
+
+Два хоста (грабля kteam): `from.host` во входящем webhook (CTS, у них `hbotx.hci.interros.ru`) **часто недоступен из контейнера**. Исходящие — на **`BOTX_API_HOST`** (`exb.interros.ru`). JWT `aud` = hostname API-хоста (`makeToken(this.apiHost)` в `src/botx/client.js`).
+
+### Как процесс слушает BotX
+
+Node, порт **8001** (`PORT`). `src/app.js`:
+
+| Метод | Путь | Зачем |
+|-------|------|--------|
+| `POST` | `/command` | входящие сообщения и **нажатия кнопок** |
+| `POST` | `/notification/callback` | статус доставки; на `status=error` лог, ответ всегда 200 |
+| `POST` | `/status` | статус бота для CTS |
+| `POST` | `/smartapps/request` | SmartApp (для 2FA **не нужно**) |
+| `GET` | `/health` | health |
+
+Контракт `/command`: **сразу 200**, `processCommand` в фоне. Иначе BotX рвёт по таймауту.
+
+Первый диалог: `command.body == system:chat_created` → приветствие. Прочие `system:*` без пользователя — игнор.
+
+Идентичность из конверта `src/handlers/command.js` `parseIncoming`:
+
+- `from.user_huid`
+- `from.username` / ФИО
+- `from.email`
+- `from.group_chat_id` — **куда слать ответ**
+- `from.host` — CTS этого пользователя
+
+### Исходящее сообщение (паттерн для push)
+
+Не статичный Bearer и не публичный `POST .../notifications/direct` из оф. доки как единственный путь.
+
+kteam (`src/botx/auth.js` + `src/botx/client.js`):
+
+1. JWT HS256, TTL **60 с**: `iss=BOT_ID`, `aud=<hostname BOTX_API_HOST>`, `version: 2`, `nbf`/`iat`/`exp`, `jti` без дефисов. Секрет = `BOT_SECRET_KEY`.
+2. `POST {BOTX_API_HOST}/api/v4/botx/notifications/direct/sync`
+3. Тело:
+
+```json
+{
+  "group_chat_id": "<uuid чата>",
+  "notification": {
+    "status": "ok",
+    "body": "текст",
+    "bubble": [[
+      {
+        "command": "/approve",
+        "label": "Разрешить",
+        "data": { "challenge_id": "..." },
+        "opts": { "silent": true }
+      },
+      {
+        "command": "/deny",
+        "label": "Отклонить",
+        "data": { "challenge_id": "..." },
+        "opts": { "silent": true }
+      }
+    ]]
+  }
+}
+```
+
+`opts.silent: true` — нажатие не печатает команду в чат. На webhook: `command.body` = `command` кнопки, `command.data` = payload.
+
+Живой аналог Approve/Remind: `src/jira/approvals.js` (`buildApprovalNotification` + `botx.sendMessage(chatId, { body, bubble })`). Directum: `buildDirectumAssignmentActionBubble` в `src/handlers/directum.js`.
+
+Заглушка MK 2FA `{"to": expressms_id, "text": "OTP: …"}` к этому API **не совместима**.
+
+### Кого пушить: lookup в kteam нет
+
+Вызовов BotX `users/by_email` / `chats/personal` **нет**. Проактив (Jira) берёт `chat_id` и `cts_host` из SQLite `usage_contacts` — строка появляется **только после** входящего `/command`.
+
+Для 2FA: либо пользователь один раз открыл бота 2FA (enroll / `/start`), либо отдельно проверять официальный lookup по email (вариант A) — **в kteam не подтверждён**.
+
+Email/ФИО дальше идут в AD/Directum/Jira, не в BotX.
+
+### Что не тащить в MK 2FA
+
+SmartApp, Ollama, Bitrix crawler, Jira SD, заказ авто, расчётный лист. Только: регистрация бота в CTS, JWT+`direct/sync`, webhook `/command`, `group_chat_id`, `bubble`+`silent`, раздельный `BOTX_API_HOST`.
+
+---
+
 ## Открытые вопросы (закрыть когда Merl принесёт доку)
 
-- [ ] Есть ли **готовое решение** (бот, шлюз, 1С-модуль, внутренний сервис) — URL/репо/контакт.
+- [x] Есть ли **готовое решение** — да: `kteam-express` (помощник, не 2FA). Контакт по репо: v-bondarev.
 - [ ] Как пользователи заведены в eXpress: **email = AD mail**? отдельный login?
-- [ ] Уже есть **бот для 2FA/уведомлений** или создавать нового?
-- [ ] Куда слать: **личный чат** бот↔user или **общий security-чат**?
-- [ ] Токен бота: как получать/ротировать (`GET /api/v2/botx/bots/{id}/token`)?
+- [x] Уже есть **бот для 2FA/уведомлений** или создавать нового? **Создавать нового** (помощник не шлюз MFA).
+- [x] Куда слать: **личный чат** бот↔user (`group_chat_id` из webhook / кэш контакта), не security-чат.
+- [x] Токен бота: kteam **не** ходит в `GET /api/v2/botx/bots/{id}/token`; сам подписывает JWT HS256 от `BOT_SECRET_KEY`.
 - [ ] Нужен ли **только OTP** или **кнопки Approve/Deny**?
 - [ ] Если push: NAS/VPN готов к **Access-Challenge / async**, или остаёмся на otp_only + код в сообщении?
 - [ ] **Push → TOTP fallback:** Discovery CP / UAG — когда дойдём; модель `push_fallback` per policy — **после** MVP push (гибкие политики отдельным этапом)
 - [ ] Rate limits BotX, DND, stealth_mode — требования безопасности?
+- [ ] Первый контакт: обязательный `/start` у бота 2FA или lookup по email в BotX?
 
 ---
 
 ## TODO (когда будет дока)
 
-1. Сверить готовое решение компании с BotX API v4 (не дублировать).
+1. ~~Сверить готовое решение компании с BotX API v4~~ — kteam: JWT + `notifications/direct/sync` + webhook `/command` (см. секцию выше). Не проксировать MFA через помощника.
 2. ADR: Express + **non-regression TOTP** (deploy checklist).
-3. Выбрать вариант привязки пользователя A/B/C.
-4. Реализовать `send_expressms_otp` под реальный BotX (или прокси через готовый сервис).
+3. Выбрать привязку: **сначала диалог с ботом** (как kteam) vs lookup email (вариант A, в kteam нет).
+4. Реализовать `send_expressms_otp` под тот же контракт, что kteam (не `{"to","text"}`).
 5. UI: убрать/заменить поле «ID в ExpressMS», подсказки по email.
 6. Опционально: webhook + кнопки + связка с `OtpChallenge`.
 7. Тесты + smoke на lab BotX Merl (dry-run → prod token).

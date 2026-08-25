@@ -1,4 +1,5 @@
 .env
+.env.express-bot
 .install-credentials.txt
 __pycache__/
 *.pyc

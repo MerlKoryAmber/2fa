@@ -152,6 +152,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Express-бот: тот же хост, что API (hmk2fa). Порт 8030 — «Адрес бота» в Express.
+  express-bot:
+    build: ./express-bot
+    image: localhost/mk2fa-express-bot:latest
+    env_file: .env
+    environment:
+      MK2FA_API_URL: http://api:8000
+    ports:
+      - "8030:8030"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8030/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
   ssl_certs:

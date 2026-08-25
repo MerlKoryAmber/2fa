@@ -6,70 +6,50 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-23 ~00:56 МСК |
-| GitHub | `main` @ **`7e32f05`** (docs backlog Express / invite / policy IP) |
-| Фича HEAD кода | otp_only + policy scope + SMTP + dashboard MVP (**код не менялся** 23.08) |
-| Локальный workspace | `/root/2fa` (lab) |
-| Сервер | CentOS Stream 9, **`/opt/2fa`** |
-| Alembic head | **007** |
-| LinOTP → тест | **все пользователи/токены импортированы** (подтверждено Merl 21.08) |
+| Дата | 2026-08-25 ~11:32 МСК |
+| GitHub | `main` (после этого push — Express-бот + install) |
+| Локальный workspace | `/root/2fa` |
+| Сервер | CentOS Stream 9; канон `/opt/2fa`; бот на **том же хосте**, что API (`:8030`) |
+| Alembic head | **008** (`policies.expressms_mode`) |
 | Вход панели | `admin` / `admin`, форма пустая |
 | Push | только по команде Merl; **не** `git add .` |
 
-## Живой стенд — ПРИНЯТО (21.08 ~20:49 МСК)
+## Что вошло (код, 24–25.08)
 
-Цепочка: **HCPGW-CL** (`172.22.1.167`) → **NPS proxy** (`172.22.10.231`, policy `u1807`) → **MK 2FA** (`172.22.10.140`).
+- `express-bot/`: webhook `/command` (сразу 200), JWT + `notifications/direct/sync`, Approve/Deny, `/start` bind chat
+- API: `/internal/express/bind`, `/internal/express/decision`; Redis hold для RADIUS push
+- Политика `expressms_mode=otp\|push` (default **otp**). TOTP `otp_only` не трогать
+- Compose: сервис `express-bot`, порт **8030**
+- `install.sh` / `update.sh`: спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY`; `compose build express-bot`; firewall 8030/tcp; `--skip-express`
+- UI политики: radio ExpressMS otp/push
 
-- Политика **otp_only**; пользователь **U1807** + TOTP из LinOTP (пилот); **полный импорт LinOTP — да**
-- **Верный OTP** → пускает (Accept)
-- **Неверный OTP** → отбивает (Reject), без NPS **117**
+`BOTX_API_HOST` = CTS/API **отправки**, не listener 8030. «Адрес бота» в Express = `https://<хост-2fa>:8030/command`.
 
-Грабли по пути (уже в коде): ACL `parse_allowed_clients`; Message-Authenticator; `network_mode: host`; эхо **Proxy-State** + MA первым attr.
+Секреты: `.env` / `.env.express-bot` (gitignore). Не коммитить.
 
-## Что вошло (сессия 22–23.08) — только docs
+## Живой стенд VPN — ПРИНЯТО (21.08)
 
-Исследование / backlog (реализации нет):
-
-| Файл | О чём |
-|------|--------|
-| `docs/backlog/EXPRESS_INTEGRATION.md` | eXpress BotX; кнопки; push; изоляция TOTP; фазы; CP/UAG fallback → **гибкие политики после** push MVP |
-| `docs/backlog/EXTERNAL_INTEGRATION_API.md` | Invite API: ключ+IP; логин+email; ldap/sync; контейнер `integration` |
-| `docs/backlog/PROD_SAFE_DEPLOY.md` | TOTP invariant; клон prod редко (другая команда) |
-| `docs/backlog/RADIUS_POLICY_SOURCE_IP.md` | **Вариант 1 отложено**: прокси + политика по `NAS-IP-Address` (CP otp_only, UAG challenge, failover 2FA) |
-
-Код/стенд VPN — без изменений относительно `059ec66` / приёмки 21.08.
-
-## Ключевые файлы
-
-| Зачем | Где |
-|-------|-----|
-| otp_only | `api/app/radius_flow.py`, ADR `docs/adr/0001-radius-otp-only.md` |
-| Policy per NAS | `api/app/policy_resolve.py`, ADR `docs/adr/0002-policy-per-radius-client.md` |
-| Backlog отложенки | `docs/backlog/*.md` |
-| Сводка | `api/app/dashboard.py` |
+HCPGW-CL → NPS proxy → MK 2FA. Политика **otp_only**, U1807. Не ломать RADIUS «с нуля».
 
 ## Хвосты
 
-- **Express/BotX (отложено):** `EXPRESS_INTEGRATION.md` — ждать доку готовых решений; порядок: push MVP → гибкие политики; TOTP не ломать
-- **RADIUS policy IP (отложено):** вариант **1** — `RADIUS_POLICY_SOURCE_IP.md`
-- **Внешний API invite (отложено):** `EXTERNAL_INTEGRATION_API.md`
-- **Prod-safe deploy:** `PROD_SAFE_DEPLOY.md`
-- Backlog: Telegram `/start`, Discovery NAS, policy OU
+- Заполнить **реальный** `BOTX_API_HOST` на стенде (не путать с `:8030`)
+- Alembic **008** + `compose up express-bot` на hmk2fa
+- Express «Адрес бота» → этот хост `:8030/command`
+- Пользователи: `/start`; политика push только EXPRESSMS
+- **RADIUS policy IP** / invite API / prod clone — отложено, `docs/backlog/`
 - Cutover LinOTP — по команде Merl
-
-**Уже на стенде:** `allowed_clients` заполнен; полный импорт LinOTP; VPN otp_only принят.
 
 ## Не делать без команды Merl
 
 - Force-push; `compose down -v` на не-lab
-- Apply миграции токенов / коммит `.env` / дампа LinOTP
+- `update.sh` на живом стенде без явной просьбы (полный rebuild)
+- Коммит `.env` / секретов бота
 - Менять git config
-- **Клон prod VM** — только по согласованию; `PROD_SAFE_DEPLOY.md`
-- Реализация Express / integration API / NAS-IP policy — только по явной задаче
 
 ## Следующий агент — старт
 
 1. `git pull --ff-only`
-2. Handoff + CHANGELOG верх + `docs/backlog/`
-3. Стенд VPN U1807 зелёный — не чинить RADIUS «с нуля»
+2. Handoff + CHANGELOG верх + alembic **008**
+3. VPN otp_only зелёный — не чинить RADIUS с нуля
 4. Caveman RU; не `git add .`

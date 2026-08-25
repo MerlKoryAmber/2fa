@@ -1401,6 +1401,7 @@ function openPolicyDraft() {
     challenge_ttl_seconds: base.challenge_ttl_seconds ?? 120,
     enroll_invite_ttl_seconds: base.enroll_invite_ttl_seconds ?? 86400,
     radius_scheme_preference: base.radius_scheme_preference || "challenge",
+    expressms_mode: base.expressms_mode || "otp",
   };
   selectedPolicyId = POLICY_DRAFT_ID;
   fillPolicyTabs();
@@ -1459,6 +1460,7 @@ function collectPolicyBody(fd, allowedFactors) {
     challenge_ttl_seconds: Number(fd.get("challenge_ttl_seconds")),
     enroll_invite_ttl_seconds: Number(fd.get("enroll_invite_ttl_seconds")),
     radius_scheme_preference: fd.get("radius_scheme_preference") || "challenge",
+    expressms_mode: fd.get("expressms_mode") || "otp",
   };
 }
 
@@ -1515,6 +1517,16 @@ function renderPolicyForm(p) {
         ],
         p.radius_scheme_preference || "challenge",
         "UAG/checkpoint обычно шлют только код токена. Если выбран первый режим — MK 2FA биндится в AD с OTP как с паролем и NAS уходит в timeout."
+      )}
+      ${radioField(
+        "ExpressMS",
+        "expressms_mode",
+        [
+          { value: "otp", label: "Код в сообщении (как сейчас)" },
+          { value: "push", label: "Кнопки Approve/Deny (бот ждёт нажатие)" },
+        ],
+        p.expressms_mode || "otp",
+        "push работает при методе пользователя ExpressMS. TOTP не меняется. Нужен бот на адресе из консоли Express."
       )}
       ${allowedFactorsFields(allowed)}
     </fieldset>
@@ -1627,6 +1639,7 @@ function wirePolicyUiOnce() {
         `Политика: ${p.name || "—"} (id ${p.id})`,
         `Область: ${p.scope || "—"}`,
         `Режим: ${p.radius_scheme_preference === "otp_only" ? "только OTP" : "challenge (AD + OTP)"}`,
+        `ExpressMS: ${p.expressms_mode === "push" ? "кнопки Approve/Deny" : "код в сообщении"}`,
         `2FA обязательна: ${p.require_2fa ? "да" : "нет"}`,
       ].join("\n");
       outEl.classList.add("muted");

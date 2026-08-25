@@ -60,6 +60,7 @@ class Policy(Base):
     challenge_ttl_seconds: Mapped[int] = mapped_column(Integer, default=120)
     enroll_invite_ttl_seconds: Mapped[int] = mapped_column(Integer, default=86400)
     radius_scheme_preference: Mapped[str] = mapped_column(String(32), default="challenge")
+    expressms_mode: Mapped[str] = mapped_column(String(16), default="otp")
 
 
 class OtpChallenge(Base):

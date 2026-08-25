@@ -17,6 +17,7 @@ MFA: **LDAP/AD** (1-й фактор) + **TOTP / ExpressMS / Telegram** (2-й) + 
 | **db** | — | PostgreSQL 16 |
 | **redis** | — | очередь + rate-limit |
 | **radius** | 1812/udp | pyrad → API; **`network_mode: host`** (иначе NPS 117: ответ не с IP хоста) |
+| **express-bot** | 8030 | webhook Express (`/command`); CTS/API отправки — `BOTX_API_HOST` (не 8030) |
 
 На хосте: **Podman** + `podman-compose` (не Docker Engine). Lab: `/root/2fa`.
 
@@ -36,12 +37,17 @@ sudo ./scripts/install.sh --dir /opt/mk2fa
 
 # пакеты уже стоят — только .env + compose
 sudo ./scripts/install.sh --skip-pkgs
+
+# без вопросов про Express-бота
+sudo ./scripts/install.sh --skip-express
 ```
+
+`install.sh` / `update.sh` спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY` (секрет без эха), собирают `express-bot`. «Адрес бота» в Express: `https://<этот-хост>:8030/command`. Флаг `--skip-express` — не спрашивать.
 
 | Скрипт | Назначение |
 |--------|------------|
-| `scripts/install.sh` | пакеты + `.env` + compose + health + smoke RADIUS→API |
-| `scripts/update.sh` | `git pull --ff-only` (unshallow если надо) + **перечитывает себя** + rebuild + health + smoke |
+| `scripts/install.sh` | пакеты + `.env` + Express-бот (опц.) + compose + health + smoke RADIUS→API |
+| `scripts/update.sh` | `git pull --ff-only` (unshallow если надо) + **перечитывает себя** + Express-бот (опц.) + rebuild + health + smoke |
 | `scripts/uninstall.sh` | `compose down`; `--purge` удаляет volumes; `--purge --remove-dir` — и каталог |
 
 `update.sh` после pull делает `exec --no-pull`. Иначе в памяти остаётся старый `common.sh` (smoke 403 без диагностики). Install больше не клонирует `--depth 1`.
@@ -54,7 +60,7 @@ sudo ./scripts/install.sh --skip-pkgs
 cd /root/2fa
 cp .env.example .env   # сменить секреты перед любой не-lab сетью
 make up                # podman-compose up --build -d
-podman exec 2fa_api_1 alembic upgrade head   # head = 007
+podman exec 2fa_api_1 alembic upgrade head   # head = 008
 curl -sk https://127.0.0.1/health
 make verify
 ```
@@ -106,7 +112,7 @@ Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/rad
 
 Сервис `radius` слушает UDP **на сети хоста** (`network_mode: host`, API `http://127.0.0.1:8000`). Публикация `1812:1812/udp` через bridge/DNAT ломает путь ответа: в логе `decision=reject`, у NPS reason **117** «server did not respond».
 
-Политика: несколько записей с областью клиентов (`*` / IP / CIDR). RADIUS берёт самое узкое совпадение. Режим **«Что приходит на RADIUS»**: `challenge` или `otp_only` — можно задать разным клиентам по-разному (ADR 0002).
+Политика: несколько записей с областью клиентов (`*` / IP / CIDR). RADIUS берёт самое узкое совпадение. Режим **«Что приходит на RADIUS»**: `challenge` или `otp_only` — можно задать разным клиентам по-разному (ADR 0002). ExpressMS: `expressms_mode=otp` (код) или `push` (Approve/Deny, hold Access-Request). TOTP `otp_only` без изменений.
 
 ## LDAP / AD
 
@@ -138,6 +144,8 @@ Mock LDAP **удалён** — только реальный AD.
 SMTP: кнопка **«Отправить тест»** шлёт письмо по полям формы **до** «Сохранить» (даже при Dry-run в форме).
 Обновление каналов OTP: пересобрать/recreate только `worker-otp` — api/radius/web/LDAP-worker не трогать.
 
+**Express push:** сервис `express-bot` на том же хосте, что API (`:8030`). Документация: [`express-bot/README.md`](express-bot/README.md). Пользователь: `/start` в чате с ботом → `users.expressms_id`. Политика push только для `otp_method=EXPRESSMS`.
+
 ```
 EXPRESSMS_DRY_RUN=true
 TELEGRAM_DRY_RUN=true
@@ -160,6 +168,7 @@ Telegram chat_id пока вручную (enroll / модал пользоват
 | 005 | `users.display_name` |
 | 006 | роли админов панели (`admin` / `operator` / `auditor`) |
 | **007** | `admins.auth_source` (local / ad), группы AD для операторов/аудиторов |
+| **008** | `policies.expressms_mode` (`otp` / `push`, default `otp`) |
 
 ## Деплой после правок кода
 

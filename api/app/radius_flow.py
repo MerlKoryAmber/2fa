@@ -130,6 +130,9 @@ def _otp_only(
         touch_last_used(user, db)
         audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="2fa_disabled", nas_ip=nas_ip)
         return {"decision": "accept", "reply_message": "OK"}
+    mode = (getattr(policy, "expressms_mode", None) or "otp").strip().lower()
+    if user.otp_method == "EXPRESSMS" and _method_allowed(policy, "EXPRESSMS") and mode == "push":
+        return _express_push_hold(db, user, policy, nas_ip=nas_ip)
     if (
         user.otp_method == "TOTP"
         and user.totp_secret_encrypted
@@ -145,6 +148,46 @@ def _otp_only(
         return {"decision": "reject", "reply_message": "Invalid OTP"}
     audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="otp_only_needs_totp")
     return {"decision": "reject", "reply_message": "2FA is not enrolled"}
+
+
+def _express_push_hold(db: Session, user: User, policy: Policy, nas_ip: str | None = None) -> dict:
+    from app.express_push import request_bot_push, wait_decision
+
+    state = new_state_token()
+    ttl = policy.challenge_ttl_seconds
+    row = OtpChallenge(
+        state_token=state,
+        user_id=user.id,
+        method_used="EXPRESSMS",
+        otp_hash=None,
+        otp_expires_at=None,
+        expires_at=challenge_expiry(ttl),
+    )
+    db.add(row)
+    db.commit()
+    audit(db, "EXPRESS_PUSH_SEND", user_id=user.id, username=user.ad_username, nas_ip=nas_ip)
+    sent = request_bot_push(
+        state=state,
+        username=user.ad_username,
+        email=user.ldap_email or "",
+        chat_id=user.expressms_id or "",
+    )
+    if not sent:
+        row.consumed = True
+        db.commit()
+        audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_send")
+        return {"decision": "reject", "reply_message": "Push was not sent"}
+    result = wait_decision(state, ttl)
+    row.consumed = True
+    db.commit()
+    if result == "approve":
+        touch_last_used(user, db)
+        audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="EXPRESSMS", nas_ip=nas_ip)
+        audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="express_push", nas_ip=nas_ip)
+        return {"decision": "accept", "reply_message": "OK"}
+    reason = "express_push_timeout" if result == "timeout" else "express_push_deny"
+    audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason=reason)
+    return {"decision": "reject", "reply_message": "Push denied or timed out"}
 
 
 def _open_challenge(

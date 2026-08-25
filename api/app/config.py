@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     expressms_dry_run: bool = True
     expressms_api_url: str = ""
     expressms_token: str = ""
+    express_bot_url: str = ""
 
     telegram_dry_run: bool = True
     telegram_bot_token: str = ""

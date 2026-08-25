@@ -103,4 +103,5 @@ def policy_public(p: Policy) -> dict:
         "challenge_ttl_seconds": p.challenge_ttl_seconds,
         "enroll_invite_ttl_seconds": p.enroll_invite_ttl_seconds,
         "radius_scheme_preference": p.radius_scheme_preference,
+        "expressms_mode": getattr(p, "expressms_mode", None) or "otp",
     }

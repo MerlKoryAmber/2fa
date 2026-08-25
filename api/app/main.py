@@ -10,7 +10,7 @@ from app.db import SessionLocal
 from app.models import Admin, Policy, User
 from app.otp import encrypt_totp_secret
 from app.rate_limit import ping_redis
-from app.routers import admin, auth, public_enroll, radius
+from app.routers import admin, auth, express, public_enroll, radius
 from app.routers import settings as settings_router
 from app.routers.auth import hash_password
 from app.settings_service import seed_from_env
@@ -31,6 +31,7 @@ app.include_router(admin.router)
 app.include_router(public_enroll.router)
 app.include_router(settings_router.router)
 app.include_router(radius.router)
+app.include_router(express.router)
 
 
 def get_db_ping():

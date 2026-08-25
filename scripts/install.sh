@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 SKIP_PKGS=0
+SKIP_EXPRESS=0
 INSTALL_DIR=""
 REPO_URL="${MK2FA_REPO_URL:-${OWN2FA_REPO_URL:-https://github.com/MerlKoryAmber/2fa.git}}"
 BRANCH="${MK2FA_BRANCH:-${OWN2FA_BRANCH:-main}}"
@@ -23,6 +24,7 @@ Usage: install.sh [options]
   --repo URL       git remote (default: GitHub MerlKoryAmber/2fa)
   --branch NAME    ветка (default: main)
   --skip-pkgs      не ставить пакеты ОС (только .env + compose)
+  --skip-express   не спрашивать BOT_ID / секрет / BOTX_API_HOST
   -h, --help
 
 Требует root для установки пакетов. Предпочтительно Podman + podman-compose;
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --repo) REPO_URL="$2"; shift 2 ;;
     --branch) BRANCH="$2"; shift 2 ;;
     --skip-pkgs) SKIP_PKGS=1; shift ;;
+    --skip-express) SKIP_EXPRESS=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "неизвестный аргумент: $1" ;;
   esac
@@ -90,6 +93,7 @@ main() {
 
   ensure_env_file
   normalize_env_file
+  configure_express_bot
   open_firewall_hint
 
   log "=== сборка и запуск стека ==="
@@ -118,6 +122,8 @@ Health:      curl -sk https://127.0.0.1/health
 Логин:       admin
 Пароль:      admin  (смените в панели после входа)
 Дальше:      Настройки → LDAP / RADIUS / SMTP
+Express:     curl -fsS http://127.0.0.1:8030/health
+             «Адрес бота»: ${pub}:8030/command
 Обновление:  sudo ${REPO_ROOT}/scripts/update.sh
 Удаление:    sudo ${REPO_ROOT}/scripts/uninstall.sh [--purge]
 

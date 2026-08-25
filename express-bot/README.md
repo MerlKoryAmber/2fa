@@ -8,7 +8,9 @@
 
 ---
 
-`install.sh` / `update.sh` спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY`, собирают сервис `express-bot` вместе со стеком. Без вопросов: `--skip-express`.
+`install.sh` / `update.sh` спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY`, собирают сервис `express-bot` вместе со стеком, гоняют **alembic**. Без вопросов: `--skip-express`.
+
+**На стенде:** не `podman exec … alembic` руками — только `sudo ./scripts/update.sh` (или `install.sh` с нуля).
 
 ## Сборка
 
@@ -62,21 +64,24 @@ INTERNAL_API_TOKEN=<уже есть у API>
 
 ### Compose (предпочтительно)
 
+На стенде канон:
+
+```bash
+cd /opt/2fa
+sudo ./scripts/update.sh
+curl -fsS http://127.0.0.1:8030/health
+curl -sk https://127.0.0.1/health
+```
+
+Скрипт: pull → параметры Express → build api/radius/web/express-bot → up → **alembic upgrade head** → smoke.
+
+Отладка только бота (не вместо update на стенде):
+
 ```bash
 cd /opt/2fa
 podman-compose up -d --build express-bot
 curl -fsS http://127.0.0.1:8030/health
 ```
-
-Миграция API (поле политики `expressms_mode`):
-
-```bash
-podman-compose exec api alembic upgrade head
-# пересоздать api, чтобы подтянуть EXPRESS_BOT_URL
-podman-compose up -d --force-recreate api
-```
-
-`update.sh` без нужды не гонять (может трогать volumes).
 
 ### Только контейнер бота, без compose
 

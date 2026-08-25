@@ -61,6 +61,9 @@ class Policy(Base):
     enroll_invite_ttl_seconds: Mapped[int] = mapped_column(Integer, default=86400)
     radius_scheme_preference: Mapped[str] = mapped_column(String(32), default="challenge")
     expressms_mode: Mapped[str] = mapped_column(String(16), default="otp")
+    # totp | express_push | express_push_then_totp — порядок факторов, не «активный метод» юзера
+    mfa_scenario: Mapped[str] = mapped_column(String(32), default="totp")
+    push_wait_seconds: Mapped[int] = mapped_column(Integer, default=60)
 
 
 class OtpChallenge(Base):

@@ -461,6 +461,15 @@ function userMethodLabel(code) {
   return USER_OTP_METHODS.find((m) => m.value === code)?.label || code;
 }
 
+function userChannelsSummary(u) {
+  const bits = [];
+  if (u.channel_totp || (u.has_totp && u.totp_confirmed)) bits.push("TOTP");
+  else if (u.has_totp) bits.push("TOTP…");
+  if (u.channel_express || u.ldap_email || u.expressms_id) bits.push("Express");
+  if (u.channel_telegram || u.telegram_chat_id) bits.push("TG");
+  return bits.length ? bits.join(", ") : "нет каналов";
+}
+
 function userChannelsCell(u) {
   const items = [];
   if (u.has_totp) {
@@ -486,6 +495,21 @@ function totpStatusText(u) {
   return u.totp_confirmed
     ? "TOTP: подтверждён (настроен по ссылке или администратором)."
     : "TOTP: ожидает confirm — пользователь ещё не ввёл код из приложения.";
+}
+
+function expressStatusText(u) {
+  const email = (u.ldap_email || "").trim();
+  const chat = (u.expressms_id || "").trim();
+  if (email && chat) {
+    return "Express: email " + email + " + chat_id (кэш). Push доступен.";
+  }
+  if (email) {
+    return "Express: email " + email + " (lookup BotX). /start не обязателен.";
+  }
+  if (chat) {
+    return "Express: только chat_id, без email AD — лучше догрузить LDAP.";
+  }
+  return "Express: нет email в AD и нет chat_id — push недоступен.";
 }
 
 let userEditId = null;
@@ -539,17 +563,15 @@ function openUserEdit(user) {
   userEditId = user.id;
   const overlay = $("#user-edit-overlay");
   $("#user-edit-title").textContent = "2FA: " + user.ad_username;
-  $("#user-edit-sub").textContent = user.ldap_email ? "Email: " + user.ldap_email : "";
+  $("#user-edit-sub").textContent =
+    "Порядок входа задаётся политикой (TOTP / Express push / push→TOTP). Здесь — каналы пользователя.";
   $("#user-edit-err").textContent = "";
-  const sel = $("#ue-method");
-  sel.innerHTML = USER_OTP_METHODS.map(
-    (m) => `<option value="${m.value}" ${user.otp_method === m.value ? "selected" : ""}>${m.label}</option>`
-  ).join("");
   $("#ue-totp-status").textContent = totpStatusText(user);
+  $("#ue-express-status").textContent = expressStatusText(user);
   $("#ue-expressms").value = user.expressms_id || "";
   $("#ue-telegram").value = user.telegram_chat_id || "";
   overlay.classList.remove("hidden");
-  sel.focus();
+  $("#ue-expressms").focus();
 }
 
 function closeUserEdit() {
@@ -736,7 +758,7 @@ function allowedFactorsFields(allowedSet) {
       name: "factor_expressms",
       key: "EXPRESSMS",
       label: "ExpressMS",
-      hint: "Одноразовый код в корпоративный мессенджер ExpressMS. Нужны настройки ExpressMS в разделе «Настройки».",
+      hint: "Кнопки Approve/Deny или OTP в Express. Нужны email в AD (или chat_id) и бот. Порядок — в Политике (сценарий 2FA).",
     },
     {
       name: "factor_telegram",
@@ -1273,7 +1295,7 @@ async function loadUsers() {
       <td class="col-ad">${esc(u.ad_username)}</td>
       <td class="col-name" title="${esc(u.display_name || "")}">${esc(u.display_name || "—")}</td>
       <td class="col-email muted">${esc(u.ldap_email || "—")}</td>
-      <td class="col-method">${esc(userMethodLabel(u.otp_method))}</td>
+      <td class="col-method muted">${esc(userChannelsSummary(u))}</td>
       <td class="user-channels muted">${userChannelsCell(u)}</td>
       <td class="row-actions">
         ${
@@ -1361,9 +1383,7 @@ $("#user-edit-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!userEditId) return;
   $("#user-edit-err").textContent = "";
-  const method = $("#ue-method").value;
   const body = {
-    otp_method: method,
     expressms_id: $("#ue-expressms").value.trim() || null,
     telegram_chat_id: $("#ue-telegram").value.trim() || null,
   };
@@ -1444,6 +1464,8 @@ function openPolicyDraft() {
     enroll_invite_ttl_seconds: base.enroll_invite_ttl_seconds ?? 86400,
     radius_scheme_preference: base.radius_scheme_preference || "challenge",
     expressms_mode: base.expressms_mode || "otp",
+    mfa_scenario: base.mfa_scenario || (base.expressms_mode === "push" ? "express_push" : "totp"),
+    push_wait_seconds: base.push_wait_seconds ?? 60,
   };
   selectedPolicyId = POLICY_DRAFT_ID;
   fillPolicyTabs();
@@ -1502,7 +1524,10 @@ function collectPolicyBody(fd, allowedFactors) {
     challenge_ttl_seconds: Number(fd.get("challenge_ttl_seconds")),
     enroll_invite_ttl_seconds: Number(fd.get("enroll_invite_ttl_seconds")),
     radius_scheme_preference: fd.get("radius_scheme_preference") || "challenge",
-    expressms_mode: fd.get("expressms_mode") || "otp",
+    mfa_scenario: fd.get("mfa_scenario") || "totp",
+    push_wait_seconds: Number(fd.get("push_wait_seconds") || 60),
+    expressms_mode:
+      (fd.get("mfa_scenario") || "totp").startsWith("express_push") ? "push" : "otp",
   };
 }
 
@@ -1561,14 +1586,25 @@ function renderPolicyForm(p) {
         "UAG/checkpoint обычно шлют только код токена. Если выбран первый режим — MK 2FA биндится в AD с OTP как с паролем и NAS уходит в timeout."
       )}
       ${radioField(
-        "ExpressMS",
-        "expressms_mode",
+        "Сценарий 2FA",
+        "mfa_scenario",
         [
-          { value: "otp", label: "Код в сообщении (как сейчас)" },
-          { value: "push", label: "Кнопки Approve/Deny (бот ждёт нажатие)" },
+          { value: "totp", label: "Только TOTP" },
+          { value: "express_push", label: "Express push (Approve/Deny)" },
+          {
+            value: "express_push_then_totp",
+            label: "Сначала Express push, при таймауте — TOTP",
+          },
         ],
-        p.expressms_mode || "otp",
-        "push работает при методе пользователя ExpressMS. TOTP не меняется. Нужен бот на адресе из консоли Express."
+        p.mfa_scenario || (p.expressms_mode === "push" ? "express_push" : "totp"),
+        "Порядок задаёт политика. У пользователя — доступные каналы (TOTP и/или Express по email). Deny в Express всегда отказ, без перехода на TOTP."
+      )}
+      ${field(
+        "Ожидание Approve (сек)",
+        "push_wait_seconds",
+        String(p.push_wait_seconds != null ? p.push_wait_seconds : 60),
+        "number",
+        "Сколько ждать кнопку в Express. Должно быть меньше RADIUS timeout на NAS. 5–300."
       )}
       ${allowedFactorsFields(allowed)}
     </fieldset>
@@ -1681,7 +1717,14 @@ function wirePolicyUiOnce() {
         `Политика: ${p.name || "—"} (id ${p.id})`,
         `Область: ${p.scope || "—"}`,
         `Режим: ${p.radius_scheme_preference === "otp_only" ? "только OTP" : "challenge (AD + OTP)"}`,
-        `ExpressMS: ${p.expressms_mode === "push" ? "кнопки Approve/Deny" : "код в сообщении"}`,
+        `Сценарий: ${
+          p.mfa_scenario === "express_push_then_totp"
+            ? "push → TOTP"
+            : p.mfa_scenario === "express_push"
+              ? "Express push"
+              : "только TOTP"
+        }`,
+        `Ожидание push: ${p.push_wait_seconds != null ? p.push_wait_seconds : "—"} с`,
         `2FA обязательна: ${p.require_2fa ? "да" : "нет"}`,
       ].join("\n");
       outEl.classList.add("muted");

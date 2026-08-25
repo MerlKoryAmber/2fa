@@ -69,5 +69,4 @@ alembic_upgrade
 wait_health
 smoke_internal_radius
 
-log "обновление завершено"
-log "версия миграций: podman exec <api> alembic current"
+log "обновление завершено (alembic уже в этом скрипте; руками upgrade не нужен)"

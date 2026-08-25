@@ -29,6 +29,8 @@ EVENT_LABELS: dict[str, str] = {
     "RADIUS_BAD_PACKET": "RADIUS: битый пакет / неверный secret",
     "RADIUS_ERROR": "RADIUS: внутренняя ошибка",
     "SEND_EXPRESSMS": "OTP отправлен в ExpressMS",
+    "EXPRESS_PUSH_SEND": "Push Express отправлен",
+    "EXPRESS_PUSH_FALLBACK_TOTP": "Push Express: переход на TOTP",
     "SEND_TELEGRAM": "OTP отправлен в Telegram",
     "OTP_OK": "OTP принят",
     "OTP_FAIL": "OTP отклонён",

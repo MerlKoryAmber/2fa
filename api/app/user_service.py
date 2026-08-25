@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.ldap_util import decode_ad_display_text
+from app.mfa_channels import user_has_express, user_has_telegram, user_has_totp
 from app.models import User
 
 
@@ -11,6 +12,9 @@ def user_row(u: User) -> dict:
         "display_name": decode_ad_display_text(u.display_name),
         "otp_method": u.otp_method,
         "has_totp": bool(u.totp_secret_encrypted),
+        "channel_totp": user_has_totp(u),
+        "channel_express": user_has_express(u),
+        "channel_telegram": user_has_telegram(u),
         "expressms_id": u.expressms_id,
         "telegram_chat_id": u.telegram_chat_id,
         "totp_confirmed": u.totp_confirmed,

@@ -46,27 +46,28 @@ sudo ./scripts/install.sh --skip-express
 
 | Скрипт | Назначение |
 |--------|------------|
-| `scripts/install.sh` | пакеты + `.env` + Express-бот (опц.) + compose + health + smoke RADIUS→API |
-| `scripts/update.sh` | `git pull --ff-only` (unshallow если надо) + **перечитывает себя** + Express-бот (опц.) + rebuild + health + smoke |
+| `scripts/install.sh` | пакеты + `.env` + Express-бот (опц.) + compose + **alembic** + health + smoke RADIUS→API |
+| `scripts/update.sh` | `git pull --ff-only` + Express-бот (опц.) + rebuild + **alembic upgrade head** + health + smoke |
 | `scripts/uninstall.sh` | `compose down`; `--purge` удаляет volumes; `--purge --remove-dir` — и каталог |
 
 `update.sh` после pull делает `exec --no-pull`. Иначе в памяти остаётся старый `common.sh` (smoke 403 без диагностики). Install больше не клонирует `--depth 1`.
+
+**На стенде не гонять alembic/`podman exec` руками** — только `install.sh` / `update.sh` (максимум отдельно `git pull`, если скрипт ещё старый). Миграции: `update.sh` и `api/entrypoint.sh` при старте api.
 
 Сгенерированные пароли (если `.env` создавался впервые): `.install-credentials.txt` (в `.gitignore`).
 
 ### Lab / уже развёрнуто
 
 ```bash
-cd /root/2fa
-cp .env.example .env   # сменить секреты перед любой не-lab сетью
-make up                # podman-compose up --build -d
-podman exec 2fa_api_1 alembic upgrade head   # head = 008
+cd /opt/2fa   # или /root/2fa
+sudo ./scripts/update.sh
+# или только стек без pull:
+# sudo ./scripts/update.sh --no-pull
 curl -sk https://127.0.0.1/health
-make verify
 ```
 
 Админка: `https://<IP>/` (self-signed по умолчанию; браузер предупредит).  
-HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`.
+HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`. Alembic head после update: **009**.
 
 ### Lab credentials (сменить перед prod)
 
@@ -112,7 +113,7 @@ Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/rad
 
 Сервис `radius` слушает UDP **на сети хоста** (`network_mode: host`, API `http://127.0.0.1:8000`). Публикация `1812:1812/udp` через bridge/DNAT ломает путь ответа: в логе `decision=reject`, у NPS reason **117** «server did not respond».
 
-Политика: несколько записей с областью клиентов (`*` / IP / CIDR). RADIUS берёт самое узкое совпадение. Режим **«Что приходит на RADIUS»**: `challenge` или `otp_only` — можно задать разным клиентам по-разному (ADR 0002). ExpressMS: `expressms_mode=otp` (код) или `push` (Approve/Deny, hold Access-Request). TOTP `otp_only` без изменений.
+Политика: несколько записей с областью клиентов (`*` / IP / CIDR). RADIUS берёт самое узкое совпадение. Режим **«Что приходит на RADIUS»**: `challenge` или `otp_only`. **Сценарий 2FA:** только TOTP / Express push / push затем TOTP (`push_wait_seconds`). Deny в Express — всегда отказ. У пользователя — доступные **каналы**, не «активный метод». Telegram в сценариях пока не участвует.
 
 ## LDAP / AD
 
@@ -169,19 +170,20 @@ Telegram chat_id пока вручную (enroll / модал пользоват
 | 006 | роли админов панели (`admin` / `operator` / `auditor`) |
 | **007** | `admins.auth_source` (local / ad), группы AD для операторов/аудиторов |
 | **008** | `policies.expressms_mode` (`otp` / `push`, default `otp`) |
+| **009** | `policies.mfa_scenario` + `push_wait_seconds` (каналы юзера, порядок в политике) |
 
 ## Деплой после правок кода
 
-Полный цикл (на lab агент делает сам):
+На сервере канон — **`scripts/update.sh`** (pull + rebuild api/radius/web/express-bot + alembic + health + smoke). Не вызывать `alembic` / `podman exec` вручную.
 
 ```bash
-podman build …   # затронутые образы
-podman-compose down && podman-compose up -d
-podman exec 2fa_api_1 alembic upgrade head
+cd /opt/2fa
+sudo ./scripts/update.sh
 curl -sk https://127.0.0.1/health
 ```
 
-**Грабля:** `up --force-recreate api` часто **не** подхватывает новый образ → 404. Нужен полный `down` → `up -d`.  
+`api/entrypoint.sh` тоже делает `alembic upgrade head` при старте контейнера api.  
+**Грабля:** `up --force-recreate api` часто **не** подхватывает новый образ — `update.sh` делает полный `down` → build → `up -d`.  
 Образы: `api`/`worker`/`worker-otp`/`beat` — один `localhost/mk2fa-api:latest` (сборка только у сервиса `api`).
 
 `PYTHONPATH=/usr/local/lib/python3.9/site-packages` — для `podman-compose` на CentOS Stream 9 lab.  

@@ -4,6 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.ldap_auth import authenticate_ldap
+from app.mfa_channels import (
+    express_usable,
+    push_wait_seconds,
+    resolve_mfa_scenario,
+    totp_usable,
+)
 from app.models import OtpChallenge, Policy, User
 from app.otp import (
     challenge_expiry,
@@ -93,32 +99,13 @@ def _start(db: Session, username: str, password: str, nas_ip: str | None = None)
         audit(db, "RADIUS_ACCEPT", user_id=user.id, username=username, reason="2fa_disabled", nas_ip=nas_ip)
         return {"decision": "accept", "reply_message": "OK"}
 
-    method = user.otp_method
-    if method == "TOTP" and user.totp_secret_encrypted and user.totp_confirmed and _method_allowed(policy, "TOTP"):
-        return _open_challenge(db, user, policy, "TOTP", None, nas_ip=nas_ip)
-    if method == "EXPRESSMS" and user.expressms_id and _method_allowed(policy, "EXPRESSMS"):
-        otp = generate_numeric_otp()
-        salt = new_state_token()
-        otp_hash = hash_otp(otp, salt) + ":" + salt
-        send_expressms_otp.delay(user.expressms_id, otp)
-        audit(db, "SEND_EXPRESSMS", user_id=user.id, username=username)
-        return _open_challenge(db, user, policy, "EXPRESSMS", otp_hash, nas_ip=nas_ip)
-    if method == "TELEGRAM" and user.telegram_chat_id and _method_allowed(policy, "TELEGRAM"):
-        otp = generate_numeric_otp()
-        salt = new_state_token()
-        otp_hash = hash_otp(otp, salt) + ":" + salt
-        send_telegram_otp.delay(user.telegram_chat_id, otp)
-        audit(db, "SEND_TELEGRAM", user_id=user.id, username=username)
-        return _open_challenge(db, user, policy, "TELEGRAM", otp_hash, nas_ip=nas_ip)
-
-    audit(db, "RADIUS_REJECT", user_id=user.id, username=username, reason="not_enrolled", nas_ip=nas_ip)
-    return {"decision": "reject", "reply_message": "2FA is not enrolled"}
+    return _mfa_after_ldap(db, user, policy, password="", nas_ip=nas_ip, otp_only=False)
 
 
 def _otp_only(
     db: Session, username: str, password: str, policy: Policy, nas_ip: str | None = None
 ) -> dict:
-    """NAS (UAG/checkpoint) уже проверил LDAP. User-Password = TOTP, без bind в AD."""
+    """NAS (UAG/checkpoint) уже проверил LDAP. User-Password = TOTP (или пусто при push-hold)."""
     user = find_radius_user(db, username)
     if not user:
         audit(db, "RADIUS_REJECT", username=username, nas_ip=nas_ip, reason="unknown_user")
@@ -130,15 +117,80 @@ def _otp_only(
         touch_last_used(user, db)
         audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="2fa_disabled", nas_ip=nas_ip)
         return {"decision": "accept", "reply_message": "OK"}
-    mode = (getattr(policy, "expressms_mode", None) or "otp").strip().lower()
-    if user.otp_method == "EXPRESSMS" and _method_allowed(policy, "EXPRESSMS") and mode == "push":
-        return _express_push_hold(db, user, policy, nas_ip=nas_ip)
-    if (
-        user.otp_method == "TOTP"
-        and user.totp_secret_encrypted
-        and user.totp_confirmed
-        and _method_allowed(policy, "TOTP")
-    ):
+    return _mfa_after_ldap(db, user, policy, password=password or "", nas_ip=nas_ip, otp_only=True)
+
+
+def _mfa_after_ldap(
+    db: Session,
+    user: User,
+    policy: Policy,
+    *,
+    password: str,
+    nas_ip: str | None,
+    otp_only: bool,
+) -> dict:
+    scenario = resolve_mfa_scenario(policy)
+    can_totp = totp_usable(user, policy)
+    can_express = express_usable(user, policy)
+
+    if scenario in ("express_push", "express_push_then_totp") and can_express:
+        return _express_push_hold(
+            db,
+            user,
+            policy,
+            nas_ip=nas_ip,
+            password=password,
+            otp_only=otp_only,
+            then_totp=(scenario == "express_push_then_totp"),
+        )
+
+    if can_totp:
+        return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
+
+    # legacy: текстовый OTP Express/Telegram при challenge (сценарий totp, но канала TOTP нет)
+    if not otp_only and scenario == "totp":
+        mode = (getattr(policy, "expressms_mode", None) or "otp").strip().lower()
+        if (
+            mode == "otp"
+            and user.expressms_id
+            and _method_allowed(policy, "EXPRESSMS")
+            and user.otp_method == "EXPRESSMS"
+        ):
+            otp = generate_numeric_otp()
+            salt = new_state_token()
+            otp_hash = hash_otp(otp, salt) + ":" + salt
+            send_expressms_otp.delay(user.expressms_id, otp)
+            audit(db, "SEND_EXPRESSMS", user_id=user.id, username=user.ad_username)
+            return _open_challenge(db, user, policy, "EXPRESSMS", otp_hash, nas_ip=nas_ip)
+        if user.telegram_chat_id and _method_allowed(policy, "TELEGRAM") and user.otp_method == "TELEGRAM":
+            otp = generate_numeric_otp()
+            salt = new_state_token()
+            otp_hash = hash_otp(otp, salt) + ":" + salt
+            send_telegram_otp.delay(user.telegram_chat_id, otp)
+            audit(db, "SEND_TELEGRAM", user_id=user.id, username=user.ad_username)
+            return _open_challenge(db, user, policy, "TELEGRAM", otp_hash, nas_ip=nas_ip)
+
+    audit(
+        db,
+        "RADIUS_REJECT",
+        user_id=user.id,
+        username=user.ad_username,
+        nas_ip=nas_ip,
+        reason="not_enrolled",
+    )
+    return {"decision": "reject", "reply_message": "2FA is not enrolled"}
+
+
+def _totp_path(
+    db: Session,
+    user: User,
+    policy: Policy,
+    *,
+    password: str,
+    nas_ip: str | None,
+    otp_only: bool,
+) -> dict:
+    if otp_only:
         if verify_totp(user.totp_secret_encrypted, (password or "").strip(), policy.totp_window_steps):
             touch_last_used(user, db)
             audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="TOTP", nas_ip=nas_ip)
@@ -146,15 +198,24 @@ def _otp_only(
             return {"decision": "accept", "reply_message": "OK"}
         audit(db, "OTP_FAIL", user_id=user.id, username=user.ad_username, method="TOTP", nas_ip=nas_ip)
         return {"decision": "reject", "reply_message": "Invalid OTP"}
-    audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="otp_only_needs_totp")
-    return {"decision": "reject", "reply_message": "2FA is not enrolled"}
+    return _open_challenge(db, user, policy, "TOTP", None, nas_ip=nas_ip)
 
 
-def _express_push_hold(db: Session, user: User, policy: Policy, nas_ip: str | None = None) -> dict:
+def _express_push_hold(
+    db: Session,
+    user: User,
+    policy: Policy,
+    *,
+    nas_ip: str | None = None,
+    password: str = "",
+    otp_only: bool = True,
+    then_totp: bool = False,
+) -> dict:
     from app.express_push import request_bot_push, wait_decision
 
     state = new_state_token()
-    ttl = policy.challenge_ttl_seconds
+    wait_s = push_wait_seconds(policy)
+    ttl = max(policy.challenge_ttl_seconds, wait_s + 30)
     row = OtpChallenge(
         state_token=state,
         user_id=user.id,
@@ -175,9 +236,20 @@ def _express_push_hold(db: Session, user: User, policy: Policy, nas_ip: str | No
     if not sent:
         row.consumed = True
         db.commit()
+        if then_totp and totp_usable(user, policy):
+            audit(
+                db,
+                "EXPRESS_PUSH_FALLBACK_TOTP",
+                user_id=user.id,
+                username=user.ad_username,
+                nas_ip=nas_ip,
+                reason="send_failed",
+            )
+            return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
         audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_send")
         return {"decision": "reject", "reply_message": "Push was not sent"}
-    result = wait_decision(state, ttl)
+
+    result = wait_decision(state, wait_s)
     row.consumed = True
     db.commit()
     if result == "approve":
@@ -185,9 +257,26 @@ def _express_push_hold(db: Session, user: User, policy: Policy, nas_ip: str | No
         audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="EXPRESSMS", nas_ip=nas_ip)
         audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="express_push", nas_ip=nas_ip)
         return {"decision": "accept", "reply_message": "OK"}
-    reason = "express_push_timeout" if result == "timeout" else "express_push_deny"
-    audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason=reason)
-    return {"decision": "reject", "reply_message": "Push denied or timed out"}
+
+    # Deny — явный отказ, без fallback на TOTP
+    if result == "deny":
+        audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_deny")
+        return {"decision": "reject", "reply_message": "Push denied"}
+
+    # timeout
+    if then_totp and totp_usable(user, policy):
+        audit(
+            db,
+            "EXPRESS_PUSH_FALLBACK_TOTP",
+            user_id=user.id,
+            username=user.ad_username,
+            nas_ip=nas_ip,
+            reason="timeout",
+        )
+        return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
+
+    audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_timeout")
+    return {"decision": "reject", "reply_message": "Push timed out"}
 
 
 def _open_challenge(

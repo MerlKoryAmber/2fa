@@ -17,6 +17,7 @@ from app.dashboard import build_dashboard
 from app.enroll_service import create_invite, ensure_totp_pending, invite_ttl
 from app.ldap_sync import run_ldap_sync
 from app.mail_service import send_invite_email
+from app.mfa_channels import sync_otp_method_from_channels
 from app.settings_service import app_public_base_url
 from app.token_service import ensure_token_serial, find_by_serial, list_tokens, revoke_token, set_token_active
 from app.user_service import list_users as filter_users
@@ -42,6 +43,8 @@ class PolicyPatch(BaseModel):
     enroll_invite_ttl_seconds: int | None = None
     radius_scheme_preference: str | None = None
     expressms_mode: str | None = None
+    mfa_scenario: str | None = None
+    push_wait_seconds: int | None = None
 
 
 class PolicyCreate(BaseModel):
@@ -57,6 +60,8 @@ class PolicyCreate(BaseModel):
     enroll_invite_ttl_seconds: int | None = None
     radius_scheme_preference: str | None = None
     expressms_mode: str | None = None
+    mfa_scenario: str | None = None
+    push_wait_seconds: int | None = None
 
 
 class TotpConfirm(BaseModel):
@@ -99,7 +104,10 @@ def patch_user(
         user.expressms_id = body.expressms_id or None
     if body.telegram_chat_id is not None:
         user.telegram_chat_id = body.telegram_chat_id or None
-    if body.otp_method is not None and body.otp_method != "NONE":
+    # порядок входа задаёт политика; otp_method — legacy-метка по каналам
+    if body.otp_method is None:
+        sync_otp_method_from_channels(user)
+    if user.otp_method and user.otp_method != "NONE":
         ensure_token_serial(user, db)
     db.commit()
     audit(db, "USER_PATCH", user_id=user.id, username=user.ad_username, by=admin.username)
@@ -283,7 +291,18 @@ def create_policy(
         expressms_mode=body.expressms_mode
         if body.expressms_mode is not None
         else (base.expressms_mode if base else "otp"),
+        mfa_scenario=body.mfa_scenario
+        if body.mfa_scenario is not None
+        else (getattr(base, "mfa_scenario", None) if base else None) or "totp",
+        push_wait_seconds=body.push_wait_seconds
+        if body.push_wait_seconds is not None
+        else (getattr(base, "push_wait_seconds", None) if base else None) or 60,
     )
+    # синхрон legacy expressms_mode с сценарием
+    if row.mfa_scenario in ("express_push", "express_push_then_totp"):
+        row.expressms_mode = "push"
+    elif body.expressms_mode is None:
+        row.expressms_mode = "otp"
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -304,6 +323,15 @@ def patch_policy(
     data = body.model_dump(exclude_unset=True)
     if "scope" in data and data["scope"] is not None:
         data["scope"] = str(data["scope"]).strip() or "*"
+    if "mfa_scenario" in data and data["mfa_scenario"] is not None:
+        sc = str(data["mfa_scenario"]).strip().lower()
+        if sc not in ("totp", "express_push", "express_push_then_totp"):
+            raise HTTPException(400, "Invalid mfa_scenario")
+        data["mfa_scenario"] = sc
+        if "expressms_mode" not in data:
+            data["expressms_mode"] = "push" if sc.startswith("express_push") else "otp"
+    if "push_wait_seconds" in data and data["push_wait_seconds"] is not None:
+        data["push_wait_seconds"] = max(5, min(int(data["push_wait_seconds"]), 300))
     for field, value in data.items():
         setattr(p, field, value)
     db.commit()

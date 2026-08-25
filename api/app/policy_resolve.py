@@ -104,4 +104,6 @@ def policy_public(p: Policy) -> dict:
         "enroll_invite_ttl_seconds": p.enroll_invite_ttl_seconds,
         "radius_scheme_preference": p.radius_scheme_preference,
         "expressms_mode": getattr(p, "expressms_mode", None) or "otp",
+        "mfa_scenario": getattr(p, "mfa_scenario", None) or "totp",
+        "push_wait_seconds": int(getattr(p, "push_wait_seconds", None) or 60),
     }

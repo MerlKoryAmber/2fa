@@ -6,36 +6,36 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-25 ~15:15 МСК |
-| GitHub | `main` (после push — фикс «Выпустить код» + Express-бот `1402cf0`) |
+| Дата | 2026-08-25 ~15:40 МСК |
+| GitHub | `main` (после push — mfa_scenario 009) |
 | Локальный workspace | `/root/2fa` |
-| Сервер | CentOS Stream 9; канон `/opt/2fa`; бот на **том же хосте**, что API (`:8030`) |
-| Alembic head | **008** (`policies.expressms_mode`) |
+| Alembic head | **009** (`mfa_scenario`, `push_wait_seconds`) |
 | Вход панели | `admin` / `admin`, форма пустая |
-| Push | только по команде Merl; **не** `git add .` |
 
-## Что вошло
+## Что вошло (код)
 
-- Express-бот + install/update (коммит `1402cf0`)
-- UI: «Выпустить код» — модалка overlay + ошибки (не панель внизу таблицы)
-
-Согласовано (ещё не в коде): юзер = **каналы** (TOTP секрет+confirm / Express по **email из AD**, `/start` опционален); порядок/fallback — **политика**; Telegram — **отложено**.
+- Юзер: **каналы** (TOTP / Express по email±chat), без UI «активный метод»
+- Политика: `mfa_scenario` = totp \| express_push \| express_push_then_totp; `push_wait_seconds`
+- RADIUS: push Approve→Accept; **Deny→Reject**; timeout→TOTP только при then_totp
+- Express доступен при `ldap_email` или `expressms_id` (не обязателен otp_method=EXPRESSMS)
+- Telegram — **не** в сценариях
+- Модалка «Выпустить код»
 
 ## Хвосты
 
-- **Выкат на тест:** pull на `/opt/2fa`, BOT_*, express-bot, alembic 008, сеть 8030, «Адрес бота»
-- Docs/ADR: каналы без «активного метода» + push→TOTP (Deny = reject)
-- Код модели push→TOTP — после приёмки push на тесте (или по команде)
-- Telegram — backlog, не трогать
+- **Выкат на тест:** `cd /opt/2fa && sudo ./scripts/update.sh` (сам pull + rebuild + alembic **009** + Express). Не `podman exec alembic` руками.
+- Настройки бота в панели — **после успешного теста** push
+- Telegram — отложено
 - RADIUS policy IP / invite API — отложено
 
 ## Не делать без команды Merl
 
-- Force-push; `compose down -v` на не-lab; полный `update.sh` без просьбы
-- Коммит `.env` / секретов
+- Force-push; `compose down -v`
+- Коммит `.env`
+- Ручной alembic / точечный `podman exec` вместо `update.sh`/`install.sh`
 
 ## Следующий агент — старт
 
-1. `git pull --ff-only`
-2. Выкат бота на тест (п. хвосты)
+1. `git pull --ff-only` (или сразу `update.sh`)
+2. На стенде: **`sudo ./scripts/update.sh`** — не руками alembic/compose
 3. Caveman RU; не `git add .`

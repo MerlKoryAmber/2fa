@@ -411,6 +411,7 @@ SmartApp, Ollama, Bitrix crawler, Jira SD, заказ авто, расчётны
 - [ ] **Push → TOTP fallback:** Discovery CP / UAG — когда дойдём; модель `push_fallback` per policy — **после** MVP push (гибкие политики отдельным этапом)
 - [ ] Rate limits BotX, DND, stealth_mode — требования безопасности?
 - [ ] Первый контакт: обязательный `/start` у бота 2FA или lookup по email в BotX?
+- [ ] **Настройки бота в веб-панели** (`BOT_ID`, `BOT_SECRET_KEY`, `BOTX_API_HOST`) — **после успешного теста** push на стенде; до этого `.env` / `install.sh`/`update.sh`. Паттерн как LDAP/RADIUS (`system_settings` + вкладка). Telegram — отдельно отложено.
 
 ---
 

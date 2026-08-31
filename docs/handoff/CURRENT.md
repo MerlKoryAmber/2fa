@@ -6,8 +6,8 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~17:30 МСК |
-| GitHub `main` | дедуп Express push на ретраях HNPS |
+| Дата | 2026-08-31 ~17:40 МСК |
+| GitHub `main` | после fix diagnose audit timestamp |
 | Alembic head | **010** |
 | Lab | `git pull` + `sudo ./scripts/update.sh` (api + radius) |
 

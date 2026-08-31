@@ -38,9 +38,9 @@ if [[ -n "$DB_CTR" ]]; then
     "SELECT ad_username, express_channel_enabled, ldap_email FROM users WHERE ad_username ILIKE '${USER_FILTER}';" 2>/dev/null || true
   log "--- audit last 15 (${USER_FILTER}) ---"
   podman exec "$DB_CTR" psql -U mfa -d mfa -c \
-    "SELECT created_at AT TIME ZONE 'Europe/Moscow' AS msk, event_type, meta->>'reason' AS reason
+    "SELECT timestamp AT TIME ZONE 'Europe/Moscow' AS msk, event_type, meta->>'reason' AS reason
      FROM audit_events WHERE username ILIKE '${USER_FILTER}'
-     ORDER BY id DESC LIMIT 15;" 2>/dev/null || true
+     ORDER BY id DESC LIMIT 15;" 2>/dev/null || warn "audit: psql failed (проверь контейнер db)"
 fi
 
 log "ожидаем на push: EXPRESS_PUSH_SEND (1x) → EXPRESS_PUSH_REUSE (ретраи NPS) → HOLD → DECISION → RADIUS_ACCEPT"

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — fix diagnose_radius_push: колонка audit timestamp
+
+- `scripts/diagnose_radius_push.sh`: `audit_events.timestamp` (не `created_at`)
+
 ## 2026-08-31 (МСК) — fix NPS 117: дедуп push на ретраях HNPS
 
 - Ретраи NPS → один `state`/один push на пользователя (`EXPRESS_PUSH_REUSE`); Approve не теряется на втором state

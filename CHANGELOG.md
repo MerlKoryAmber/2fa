@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — fix NPS 117: дедуп push на ретраях HNPS
+
+- Ретраи NPS → один `state`/один push на пользователя (`EXPRESS_PUSH_REUSE`); Approve не теряется на втором state
+- `radius`: лог `recv … id=` (RADIUS Identifier); `scripts/diagnose_radius_push.sh` для lab
+
 ## 2026-08-31 (МСК) — fix NPS 117 при Express push: многопоточный radius
 
 - `radius/server.py`: ThreadPoolExecutor (`RADIUS_WORKERS`, default 32) — hold push не блокирует UDP; ретраи HNPS получают ответ

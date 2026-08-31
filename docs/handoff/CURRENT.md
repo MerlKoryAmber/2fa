@@ -6,28 +6,28 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~16:50 МСК |
-| GitHub `main` | fix radius workers (NPS 117 на push) |
+| Дата | 2026-08-31 ~17:30 МСК |
+| GitHub `main` | дедуп Express push на ретраях HNPS |
 | Alembic head | **010** |
-| Lab | `/opt/2fa` — pull + `update.sh` (пересборка **radius**) |
+| Lab | `git pull` + `sudo ./scripts/update.sh` (api + radius) |
 
 ## Что вошло (код)
 
-- **radius:** пул потоков на UDP — hold Express push не блокирует ретраи HNPS (reason 117 при рабочем TOTP)
-- Ранее: express push otp_only hold, Approve BotX, `EXPRESS_PUSH_HOLD`, RADIUS_API_TIMEOUT=120
+- **Дедуп push:** ретраи HNPS → `EXPRESS_PUSH_REUSE`, один state; без второго push
+- **radius:** workers=32, лог `recv id=`; diagnose: `scripts/diagnose_radius_push.sh U1807`
+- Ранее: otp_only express hold, Approve BotX, RADIUS_API_TIMEOUT=120
 
 ## Хвосты
 
-- **Lab:** `git pull` → `sudo ./scripts/update.sh` → VPN U1807 + Approve
-- В логе radius: `workers=32`, на push `api_s=…`
-- E2E: без 117 на HNPS при `express_push`
+- Lab VPN U1807: один `EXPRESS_PUSH_SEND`, ретраи → `REUSE`, затем `RADIUS_ACCEPT`
+- HNPS без 117 при Approve в окне `push_wait_seconds`
 
 ## Не делать
 
-- Двухфазный Access-Challenge для CP push — поле OTP
-- Откат radius в однопоток
+- Access-Challenge на CP push
+- Новый push на каждый ретрай NPS
 
 ## Следующий агент
 
-1. Приёмка push VPN после rebuild radius
-2. Если 117 остаётся — таймстемпы NPS vs `api_s` в radius log
+1. `./scripts/diagnose_radius_push.sh` после попытки VPN
+2. Если 117 — сверить `recv id=` в radius с Event Viewer HNPS

@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 KEY = "express_push:{state}"
 FALLBACK_KEY = "express_push_fallback:{user_id}"
+ACTIVE_KEY = "express_push_active:{user_id}"
 
 
 def push_key(state: str) -> str:
@@ -37,6 +38,23 @@ def clear_push_fallback(user_id: int) -> None:
 
 def push_fallback_active(user_id: int) -> bool:
     return bool(_redis().get(fallback_key(user_id)))
+
+
+def active_push_key(user_id: int) -> str:
+    return ACTIVE_KEY.format(user_id=user_id)
+
+
+def get_active_push_state(user_id: int) -> str | None:
+    val = _redis().get(active_push_key(user_id))
+    return str(val) if val else None
+
+
+def set_active_push_state(user_id: int, state: str, ttl: int) -> None:
+    _redis().set(active_push_key(user_id), state, ex=max(ttl, 30))
+
+
+def clear_active_push_state(user_id: int) -> None:
+    _redis().delete(active_push_key(user_id))
 
 
 def record_decision(state: str, decision: str, ttl: int) -> None:

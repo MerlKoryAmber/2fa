@@ -163,6 +163,19 @@ def handle(data: bytes, addr) -> bytes | None:
         st = pkt["State"][0]
         state = st.decode("utf-8", "replace") if isinstance(st, bytes) else str(st)
 
+    pkt_id = getattr(pkt, "id", None)
+    pwd_len = len(password or "")
+    log.info(
+        "recv user=%s from=%s:%s id=%s state=%s pwd_len=%s proxy_state=%s",
+        username,
+        addr[0],
+        addr[1],
+        pkt_id,
+        "yes" if state else "no",
+        pwd_len,
+        "Proxy-State" in pkt,
+    )
+
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
     result = {"decision": "reject", "reply_message": "Internal error"}
     t0 = time.time()
@@ -238,10 +251,11 @@ def handle(data: bytes, addr) -> bytes | None:
     out = reply.ReplyPacket()
     elapsed = time.time() - t0
     log.info(
-        "user=%s from=%s:%s decision=%s reply_len=%s proxy_state=%s api_s=%.2f",
+        "user=%s from=%s:%s id=%s decision=%s reply_len=%s proxy_state=%s api_s=%.2f",
         username,
         addr[0],
         addr[1],
+        pkt_id,
         decision,
         len(out),
         "Proxy-State" in pkt,

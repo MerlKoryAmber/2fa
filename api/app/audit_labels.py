@@ -31,6 +31,7 @@ EVENT_LABELS: dict[str, str] = {
     "SEND_EXPRESSMS": "OTP отправлен в ExpressMS",
     "EXPRESS_PUSH_SEND": "Push Express отправлен",
     "EXPRESS_PUSH_HOLD": "Ожидание Approve в Express (hold RADIUS)",
+    "EXPRESS_PUSH_REUSE": "Push Express: повторный RADIUS (тот же state)",
     "EXPRESS_PUSH_FALLBACK_TOTP": "Push Express: переход на TOTP",
     "SEND_TELEGRAM": "OTP отправлен в Telegram",
     "OTP_OK": "OTP принят",

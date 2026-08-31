@@ -235,3 +235,77 @@ def test_otp_only_express_push_ignores_totp_in_password(db_session, fake_redis):
         out = handle_access_request(db_session, "ems7", code, None)
     assert out["decision"] == "accept"
     push.assert_called_once()
+
+
+def test_express_push_reuses_active_session(db_session, fake_redis):
+    from app.express_push import set_active_push_state
+    from app.models import OtpChallenge
+    from app.otp import challenge_expiry
+
+    db_session.add(Policy(radius_scheme_preference="otp_only", mfa_scenario="express_push", expressms_mode="push"))
+    user = User(
+        ad_username="ems8",
+        otp_method="NONE",
+        express_channel_enabled=True,
+        ldap_email="e8@corp.local",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    state = "reuse-state-token-abc"
+    db_session.add(
+        OtpChallenge(
+            state_token=state,
+            user_id=user.id,
+            method_used="EXPRESSMS",
+            otp_hash=None,
+            expires_at=challenge_expiry(120),
+        )
+    )
+    db_session.commit()
+    set_active_push_state(user.id, state, 120)
+
+    with patch("app.express_push.request_bot_push", return_value=True) as push, patch(
+        "app.express_push.wait_decision", return_value="approve"
+    ):
+        out = handle_access_request(db_session, "ems8", "", None)
+    assert out["decision"] == "accept"
+    push.assert_not_called()
+
+
+def test_express_push_reuses_active_session(db_session, fake_redis):
+    from app.express_push import set_active_push_state
+    from app.models import OtpChallenge
+    from app.otp import challenge_expiry
+
+    db_session.add(Policy(radius_scheme_preference="otp_only", mfa_scenario="express_push", expressms_mode="push"))
+    user = User(
+        ad_username="ems8",
+        otp_method="NONE",
+        express_channel_enabled=True,
+        ldap_email="e8@corp.local",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    state = "reuse-state-token-abc"
+    db_session.add(
+        OtpChallenge(
+            state_token=state,
+            user_id=user.id,
+            method_used="EXPRESSMS",
+            otp_hash=None,
+            expires_at=challenge_expiry(120),
+        )
+    )
+    db_session.commit()
+    set_active_push_state(user.id, state, 120)
+
+    with patch("app.express_push.request_bot_push", return_value=True) as push, patch(
+        "app.express_push.wait_decision", return_value="approve"
+    ):
+        out = handle_access_request(db_session, "ems8", "", None)
+    assert out["decision"] == "accept"
+    push.assert_not_called()

@@ -252,60 +252,109 @@ def _express_push_hold(
     User-Password в пакете не используется, кроме fallback express_push_then_totp.
     """
     from app.express_push import (
+        clear_active_push_state,
         clear_push_fallback,
+        get_active_push_state,
         mark_push_fallback,
         request_bot_push,
+        set_active_push_state,
         wait_decision,
     )
 
-    state = new_state_token()
     wait_s = push_wait_seconds(policy)
     ttl = max(policy.challenge_ttl_seconds, wait_s + 30)
-    row = OtpChallenge(
-        state_token=state,
-        user_id=user.id,
-        method_used="EXPRESSMS",
-        otp_hash=None,
-        otp_expires_at=None,
-        expires_at=challenge_expiry(ttl),
-    )
-    db.add(row)
-    db.commit()
-    audit(db, "EXPRESS_PUSH_SEND", user_id=user.id, username=user.ad_username, nas_ip=nas_ip)
-    sent = request_bot_push(
-        state=state,
-        username=user.ad_username,
-        email=user.ldap_email or "",
-        chat_id=user.expressms_id or "",
-    )
-    if not sent:
-        row.consumed = True
-        db.commit()
-        if then_totp and totp_usable(user, policy):
+    now = utcnow()
+    row: OtpChallenge | None = None
+    state: str | None = None
+    reused = False
+
+    active_state = get_active_push_state(user.id)
+    if active_state:
+        row = (
+            db.query(OtpChallenge)
+            .filter(
+                OtpChallenge.state_token == active_state,
+                OtpChallenge.user_id == user.id,
+                OtpChallenge.consumed.is_(False),
+                OtpChallenge.method_used == "EXPRESSMS",
+                OtpChallenge.otp_hash.is_(None),
+            )
+            .first()
+        )
+        if row and _aware(row.expires_at) >= now:
+            state = active_state
+            reused = True
             audit(
                 db,
-                "EXPRESS_PUSH_FALLBACK_TOTP",
+                "EXPRESS_PUSH_REUSE",
                 user_id=user.id,
                 username=user.ad_username,
                 nas_ip=nas_ip,
-                reason="send_failed",
+                reason="nps_retry",
             )
-            return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
-        audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_send")
-        return {"decision": "reject", "reply_message": "Push was not sent"}
+        else:
+            clear_active_push_state(user.id)
+            row = None
 
-    # Kontur-like UX: один RADIUS-запрос «висит» до Approve/Deny, без Access-Challenge.
-    audit(
-        db,
-        "EXPRESS_PUSH_HOLD",
-        user_id=user.id,
-        username=user.ad_username,
-        nas_ip=nas_ip,
-        reason=f"wait_{wait_s}s",
-    )
-    result = wait_decision(state, wait_s)
-    row.consumed = True
-    db.commit()
+    if not state:
+        state = new_state_token()
+        row = OtpChallenge(
+            state_token=state,
+            user_id=user.id,
+            method_used="EXPRESSMS",
+            otp_hash=None,
+            otp_expires_at=None,
+            expires_at=challenge_expiry(ttl),
+        )
+        db.add(row)
+        db.commit()
+        set_active_push_state(user.id, state, ttl)
+        audit(db, "EXPRESS_PUSH_SEND", user_id=user.id, username=user.ad_username, nas_ip=nas_ip)
+        sent = request_bot_push(
+            state=state,
+            username=user.ad_username,
+            email=user.ldap_email or "",
+            chat_id=user.expressms_id or "",
+        )
+        if not sent:
+            row.consumed = True
+            clear_active_push_state(user.id)
+            db.commit()
+            if then_totp and totp_usable(user, policy):
+                audit(
+                    db,
+                    "EXPRESS_PUSH_FALLBACK_TOTP",
+                    user_id=user.id,
+                    username=user.ad_username,
+                    nas_ip=nas_ip,
+                    reason="send_failed",
+                )
+                return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
+            audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_send")
+            return {"decision": "reject", "reply_message": "Push was not sent"}
+
+    assert row is not None
+    elapsed = (now - _aware(row.created_at)).total_seconds()
+    remaining_raw = wait_s - elapsed
+    if remaining_raw <= 0:
+        row.consumed = True
+        clear_active_push_state(user.id)
+        db.commit()
+        result = "timeout"
+    else:
+        remaining = max(1, int(remaining_raw))
+        audit(
+            db,
+            "EXPRESS_PUSH_HOLD",
+            user_id=user.id,
+            username=user.ad_username,
+            nas_ip=nas_ip,
+            reason=f"wait_{remaining}s" if reused else f"wait_{wait_s}s",
+        )
+        result = wait_decision(state, remaining)
+        row.consumed = True
+        clear_active_push_state(user.id)
+        db.commit()
     if result == "approve":
         clear_push_fallback(user.id)
         touch_last_used(user, db)

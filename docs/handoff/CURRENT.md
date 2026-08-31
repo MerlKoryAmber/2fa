@@ -1,28 +1,28 @@
 # Handoff — текущее состояние
 
-Обновлять **перед каждым `git push`** (и при смене сессии / незавершёнке). Время — **МСК**.
+Обновлять **перед каждым `git push`**. Время — **МСК**.
 
 ## Срез
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~14:00 МСК |
-| GitHub | `main` (BotX chats/create при personal 404) |
+| Дата | 2026-08-31 ~14:50 МСК |
+| GitHub | `main` (RADIUS hold 120s для push) |
 | Alembic head | **010** |
-| Вход панели | `admin` / `admin` |
 
 ## Что вошло (код)
 
-- Push по email: если `chats/personal` 404 — `chats/create` (нужен `allow_chat_creating` у бота)
-- Ранее: trust_env, INTERNAL_API_TOKEN, express_channel_enabled
+- RADIUS→API timeout **120 с** (push hold); fallback TOTP после таймаута push; `EXPRESS_PUSH_LATE`
+- Ранее: BotX chats/create, trust_env, INTERNAL_API_TOKEN, express_channel_enabled
 
 ## Хвосты
 
 - **Выкат:** `sudo ./scripts/update.sh` на hmk2fa
-- Express: `allow_chat_creating=true` у бота; VPN U1807 — смотреть `botx chats/create` / `notify` в логах
-- End-to-end push Approve → RADIUS Accept
+- **Check Point:** RADIUS timeout на gateway ≥ `push_wait_seconds` + запас (60–120 с)
+- Политика CP: сценарий **только push** (без TOTP в том же окне) или `push→TOTP` осознанно
+- E2E: VPN → push → Approve **без** ввода TOTP → Accept
 
 ## Следующий агент
 
-1. `update.sh` → VPN push U1807
-2. Логи express-bot: `chats/create status=200`, `botx notify status=200`
+1. `update.sh` → VPN U1807, Approve в Express
+2. Логи radius: `api_timeout=120s`, `decision=accept`

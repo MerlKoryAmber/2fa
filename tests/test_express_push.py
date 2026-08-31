@@ -69,6 +69,65 @@ def test_otp_only_express_push_deny_no_totp_fallback(db_session, fake_redis):
     assert out["decision"] == "reject"
 
 
+def test_otp_only_express_push_timeout_falls_back_totp_challenge(db_session, fake_redis):
+    secret = "JBSWY3DPEHPK3PXP"
+    db_session.add(
+        Policy(
+            radius_scheme_preference="otp_only",
+            mfa_scenario="express_push_then_totp",
+            expressms_mode="push",
+            push_wait_seconds=10,
+        )
+    )
+    db_session.add(
+        User(
+            ad_username="ems3b",
+            otp_method="NONE",
+            express_channel_enabled=True,
+            ldap_email="e3b@corp.local",
+            totp_secret_encrypted=encrypt_totp_secret(secret),
+            totp_confirmed=True,
+        )
+    )
+    db_session.commit()
+
+    with patch("app.express_push.request_bot_push", return_value=True), patch(
+        "app.express_push.wait_decision", return_value="timeout"
+    ):
+        out = handle_access_request(db_session, "ems3b", "", None)
+    assert out["decision"] == "challenge"
+    assert out.get("state")
+
+
+def test_otp_only_express_push_retry_totp_after_fallback_flag(db_session, fake_redis):
+    secret = "JBSWY3DPEHPK3PXP"
+    db_session.add(
+        Policy(
+            radius_scheme_preference="otp_only",
+            mfa_scenario="express_push_then_totp",
+            expressms_mode="push",
+        )
+    )
+    user = User(
+        ad_username="ems3c",
+        otp_method="NONE",
+        express_channel_enabled=True,
+        ldap_email="e3c@corp.local",
+        totp_secret_encrypted=encrypt_totp_secret(secret),
+        totp_confirmed=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    from app.express_push import mark_push_fallback
+
+    mark_push_fallback(user.id, 120)
+    code = pyotp.TOTP(secret).now()
+    out = handle_access_request(db_session, "ems3c", code, None)
+    assert out["decision"] == "accept"
+
+
 def test_otp_only_express_push_timeout_falls_back_totp(db_session, fake_redis):
     secret = "JBSWY3DPEHPK3PXP"
     db_session.add(

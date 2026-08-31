@@ -1621,7 +1621,7 @@ function renderPolicyForm(p) {
         "push_wait_seconds",
         String(p.push_wait_seconds != null ? p.push_wait_seconds : 60),
         "number",
-        "Сколько ждать кнопку в Express. Должно быть меньше RADIUS timeout на NAS. 5–300."
+        "Сколько ждать кнопку в Express. Должно быть меньше таймаута RADIUS на Check Point (часто 60–120 с) и меньше RADIUS_API_TIMEOUT (120 с). Иначе Approve придёт слишком поздно."
       )}
       ${allowedFactorsFields(allowed)}
     </fieldset>

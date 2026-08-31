@@ -14,6 +14,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 API = os.environ.get("API_URL", "http://api:8000")
 HOST_ENV = "/run/mk2fa/host.env"
+# Push hold в API до push_wait_seconds (до 300). 4 с — RADIUS обрывался до Approve.
+API_TIMEOUT = float(os.environ.get("RADIUS_API_TIMEOUT", "120"))
 
 
 def _clean_token(raw: str | None) -> str:
@@ -155,7 +157,7 @@ def handle(data: bytes, addr) -> bytes | None:
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
     result = {"decision": "reject", "reply_message": "Internal error"}
     try:
-        with httpx.Client(timeout=4.0, trust_env=False) as client:
+        with httpx.Client(timeout=API_TIMEOUT, trust_env=False) as client:
             r = client.post(
                 f"{API}/internal/radius/access-request",
                 json=payload,
@@ -239,7 +241,7 @@ def handle(data: bytes, addr) -> bytes | None:
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((LISTEN, PORT))
-    log.info("RADIUS listening on %s:%s", LISTEN, PORT)
+    log.info("RADIUS listening on %s:%s api_timeout=%ss", LISTEN, PORT, API_TIMEOUT)
     while True:
         data, addr = sock.recvfrom(8192)
         try:

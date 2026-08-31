@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — RADIUS hold для Express push (Check Point)
+
+- `radius`: `RADIUS_API_TIMEOUT=120` (было 4 с) — иначе Approve в Express не успевал до ответа NAS
+- `express_push_then_totp`: флаг fallback в Redis; повторный otp_only с TOTP без нового push; таймаут → Challenge TOTP
+- Аудит `EXPRESS_PUSH_LATE` при опоздавшем Approve; подсказка `push_wait_seconds` в политике
+
 ## 2026-08-31 (МСК) — BotX: личный чат при push по email
 
 - `lookup_by_email`: v1/v3/v4 `chats/personal`; при 404 — `POST chats/create` (`chat_type: chat`) для проактивного push

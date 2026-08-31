@@ -58,7 +58,19 @@ def express_decision(body: DecisionIn, db: Session = Depends(get_db), _: None = 
         raise HTTPException(400, "decision")
     state = (body.state or "").strip()
     row = db.query(OtpChallenge).filter(OtpChallenge.state_token == state).first()
-    if not row or row.consumed:
+    if not row:
+        record_decision(state, decision, 60)
+        log.warning("express decision late: unknown state=%s decision=%s", state[:8], decision)
+        return {"ok": False, "error": "unknown_or_used"}
+    if row.consumed:
+        record_decision(state, decision, 60)
+        log.warning(
+            "express decision late: challenge consumed user_id=%s state=%s decision=%s",
+            row.user_id,
+            state[:8],
+            decision,
+        )
+        audit(db, "EXPRESS_PUSH_LATE", user_id=row.user_id, reason=decision)
         return {"ok": False, "error": "unknown_or_used"}
     ttl = 120
     if row.expires_at and row.created_at:

@@ -123,6 +123,7 @@ services:
     network_mode: host
     environment:
       API_URL: http://127.0.0.1:8000
+      RADIUS_API_TIMEOUT: "120"
       NO_PROXY: localhost,127.0.0.1
       no_proxy: localhost,127.0.0.1
     volumes:

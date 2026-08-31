@@ -120,6 +120,27 @@ def _otp_only(
     return _mfa_after_ldap(db, user, policy, password=password or "", nas_ip=nas_ip, otp_only=True)
 
 
+def _try_totp_accept_otp_only(
+    db: Session,
+    user: User,
+    policy: Policy,
+    password: str,
+    *,
+    nas_ip: str | None,
+    reason: str,
+) -> dict | None:
+    """otp_only: User-Password уже содержит TOTP (повтор после таймаута push)."""
+    pwd = (password or "").strip()
+    if not pwd or not totp_usable(user, policy):
+        return None
+    if not verify_totp(user.totp_secret_encrypted, pwd, policy.totp_window_steps):
+        return None
+    touch_last_used(user, db)
+    audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="TOTP", nas_ip=nas_ip)
+    audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason=reason, nas_ip=nas_ip)
+    return {"decision": "accept", "reply_message": "OK"}
+
+
 def _mfa_after_ldap(
     db: Session,
     user: User,
@@ -134,6 +155,16 @@ def _mfa_after_ldap(
     can_express = express_usable(user, policy)
 
     if scenario in ("express_push", "express_push_then_totp") and can_express:
+        if scenario == "express_push_then_totp" and otp_only:
+            from app.express_push import clear_push_fallback, push_fallback_active
+
+            if push_fallback_active(user.id):
+                fast = _try_totp_accept_otp_only(
+                    db, user, policy, password, nas_ip=nas_ip, reason="express_push_fallback_totp"
+                )
+                if fast:
+                    clear_push_fallback(user.id)
+                    return fast
         return _express_push_hold(
             db,
             user,
@@ -211,7 +242,12 @@ def _express_push_hold(
     otp_only: bool = True,
     then_totp: bool = False,
 ) -> dict:
-    from app.express_push import request_bot_push, wait_decision
+    from app.express_push import (
+        clear_push_fallback,
+        mark_push_fallback,
+        request_bot_push,
+        wait_decision,
+    )
 
     state = new_state_token()
     wait_s = push_wait_seconds(policy)
@@ -253,6 +289,7 @@ def _express_push_hold(
     row.consumed = True
     db.commit()
     if result == "approve":
+        clear_push_fallback(user.id)
         touch_last_used(user, db)
         audit(db, "OTP_OK", user_id=user.id, username=user.ad_username, method="EXPRESSMS", nas_ip=nas_ip)
         audit(db, "RADIUS_ACCEPT", user_id=user.id, username=user.ad_username, reason="express_push", nas_ip=nas_ip)
@@ -265,6 +302,13 @@ def _express_push_hold(
 
     # timeout
     if then_totp and totp_usable(user, policy):
+        mark_push_fallback(user.id, wait_s + 60)
+        fast = _try_totp_accept_otp_only(
+            db, user, policy, password, nas_ip=nas_ip, reason="express_push_fallback_totp"
+        )
+        if fast:
+            clear_push_fallback(user.id)
+            return fast
         audit(
             db,
             "EXPRESS_PUSH_FALLBACK_TOTP",
@@ -273,6 +317,8 @@ def _express_push_hold(
             nas_ip=nas_ip,
             reason="timeout",
         )
+        if otp_only:
+            return _open_challenge(db, user, policy, "TOTP", None, nas_ip=nas_ip)
         return _totp_path(db, user, policy, password=password, nas_ip=nas_ip, otp_only=otp_only)
 
     audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_timeout")

@@ -6,23 +6,23 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~14:50 МСК |
-| GitHub | `main` (RADIUS hold 120s для push) |
+| Дата | 2026-08-31 ~15:10 МСК |
+| GitHub | `main` (fix парсер Approve BotX) |
 | Alembic head | **010** |
 
 ## Что вошло (код)
 
-- RADIUS→API timeout **120 с** (push hold); fallback TOTP после таймаута push; `EXPRESS_PUSH_LATE`
-- Ранее: BotX chats/create, trust_env, INTERNAL_API_TOKEN, express_channel_enabled
+- Approve в Express: парсер webhook (string command, challenge_id); «Вход разрешён» на стенде подтверждён
+- Ранее: RADIUS hold 120s, chats/create, trust_env, express_channel_enabled
 
 ## Хвосты
 
-- **Выкат:** `sudo ./scripts/update.sh` на hmk2fa
-- **Check Point:** RADIUS timeout на gateway ≥ `push_wait_seconds` + запас (60–120 с)
-- Политика CP: сценарий **только push** (без TOTP в том же окне) или `push→TOTP` осознанно
-- E2E: VPN → push → Approve **без** ввода TOTP → Accept
+- **Выкат:** `update.sh` — express-bot + api (логи decision)
+- **Check Point:** VPN Accept только если Approve **до** `express_push_timeout`; CP RADIUS timeout ≥ push_wait
+- otp_only: поле OTP пустое на push-попытке или сценарий только push без TOTP в том же окне
+- E2E: Approve → `EXPRESS_PUSH_DECISION` + `RADIUS_ACCEPT` в аудите
 
 ## Следующий агент
 
-1. `update.sh` → VPN U1807, Approve в Express
-2. Логи radius: `api_timeout=120s`, `decision=accept`
+1. После update — VPN U1807, Approve в окне push_wait
+2. Если timeout в аудите — CP timeout или Approve поздно

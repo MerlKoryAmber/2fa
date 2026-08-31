@@ -15,6 +15,26 @@ HELP = (
 )
 
 
+def _is_approve(cmd: str) -> bool:
+    c = (cmd or "").strip().lower()
+    if "@" in c:
+        c = c.split("@", 1)[0].strip()
+    return c in (CMD_APPROVE.lower(), "/2fa_approve", "2fa_approve")
+
+
+def _is_deny(cmd: str) -> bool:
+    c = (cmd or "").strip().lower()
+    if "@" in c:
+        c = c.split("@", 1)[0].strip()
+    return c in (CMD_DENY.lower(), "/2fa_deny", "2fa_deny")
+
+
+def _state_from_data(data: dict) -> str:
+    if not isinstance(data, dict):
+        return ""
+    return str(data.get("state") or data.get("challenge_id") or "").strip()
+
+
 async def handle_parsed(parsed: dict) -> None:
     cmd = parsed["cmd_body"]
     chat_id = parsed["chat_id"]
@@ -40,13 +60,15 @@ async def handle_parsed(parsed: dict) -> None:
             )
         return
 
-    if cmd in (CMD_APPROVE, CMD_DENY):
-        state = str(data.get("state") or "").strip()
-        decision = "approve" if cmd == CMD_APPROVE else "deny"
+    if _is_approve(cmd) or _is_deny(cmd):
+        state = _state_from_data(data)
+        decision = "approve" if _is_approve(cmd) else "deny"
+        log.info("push button cmd=%s state=%s huid=%s", cmd, state[:12] if state else "", huid)
         if not state:
             await send_text(chat_id, "Нет идентификатора входа.", cts)
             return
         out = await mk2fa.submit_decision(state=state, decision=decision, huid=huid)
+        log.info("push decision api ok=%s state=%s", out.get("ok"), state[:12])
         if out.get("ok"):
             text = "Вход разрешён." if decision == "approve" else "Вход отклонён."
         else:

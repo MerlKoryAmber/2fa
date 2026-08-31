@@ -77,4 +77,5 @@ def express_decision(body: DecisionIn, db: Session = Depends(get_db), _: None = 
         ttl = max(int((row.expires_at - row.created_at).total_seconds()), 30)
     record_decision(state, decision, ttl)
     audit(db, "EXPRESS_PUSH_DECISION", user_id=row.user_id, reason=decision)
+    log.info("express push decision recorded=%s state=%s user_id=%s", decision, state[:12], row.user_id)
     return {"ok": True}

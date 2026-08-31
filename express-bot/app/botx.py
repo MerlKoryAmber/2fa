@@ -71,7 +71,7 @@ async def send_text(chat_id: str, body: str, cts_host: str = "") -> dict:
 
 
 def push_bubble(state: str, username: str) -> dict:
-    data = {"state": state, "username": username}
+    data = {"state": state, "username": username, "challenge_id": state}
     return {
         "status": "ok",
         "body": f"Вход в VPN ({username}). Подтвердите вход.",

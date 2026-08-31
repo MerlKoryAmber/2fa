@@ -48,11 +48,14 @@ def record_decision(state: str, decision: str, ttl: int) -> None:
 def wait_decision(state: str, ttl: int) -> str:
     r: redis.Redis = _redis()
     deadline = time.time() + max(ttl, 1)
+    key = push_key(state)
     while time.time() < deadline:
-        val = r.get(push_key(state))
+        val = r.get(key)
         if val in ("approve", "deny"):
+            log.info("express push decision=%s state=%s", val, state[:12])
             return str(val)
         time.sleep(0.4)
+    log.warning("express push timeout state=%s waited=%ss", state[:12], ttl)
     return "timeout"
 
 

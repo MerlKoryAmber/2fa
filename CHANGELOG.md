@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — fix Approve: парсер webhook кнопок BotX
+
+- express-bot: `command` как строка, `data` на верхнем уровне, `@bot`, `challenge_id` в bubble
+- Логи push button / decision / timeout state; тесты вариантов webhook
+
 ## 2026-08-31 (МСК) — RADIUS hold для Express push (Check Point)
 
 - `radius`: `RADIUS_API_TIMEOUT=120` (было 4 с) — иначе Approve в Express не успевал до ответа NAS

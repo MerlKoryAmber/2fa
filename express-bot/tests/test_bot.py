@@ -1,6 +1,43 @@
+import pytest
+
 from app.botx import _audience, make_token, push_bubble
 from app.config import settings
 from app.incoming import CHAT_CREATED, parse_incoming, should_ignore
+
+
+@pytest.mark.parametrize(
+    "body,expect_state",
+    [
+        (
+            {
+                "command": {"body": "/2fa_approve", "data": {"state": "abc"}},
+                "from": {"user_huid": "h-1", "group_chat_id": "c-1"},
+            },
+            "abc",
+        ),
+        (
+            {
+                "command": "/2fa_approve",
+                "data": {"state": "xyz"},
+                "from": {"user_huid": "h-2", "group_chat_id": "c-2"},
+            },
+            "xyz",
+        ),
+        (
+            {
+                "command": {"body": "/2fa_approve@push2fa_bot"},
+                "data": {"challenge_id": "cid1"},
+                "from": {"user_huid": "h-3", "group_chat_id": "c-3"},
+            },
+            "cid1",
+        ),
+    ],
+)
+def test_parse_button_variants(body, expect_state):
+    parsed = parse_incoming(body)
+    assert parsed["cmd_body"] == "/2fa_approve"
+    assert parsed["cmd_data"].get("state") == expect_state or parsed["cmd_data"].get("challenge_id") == expect_state
+    assert not should_ignore(parsed)
 
 
 def test_parse_command_and_button():
@@ -49,3 +86,4 @@ def test_bubble_silent_commands():
     assert {b["command"] for b in row} == {"/2fa_approve", "/2fa_deny"}
     assert all(b["opts"]["silent"] is True for b in row)
     assert all(b["data"]["state"] == "st1" for b in row)
+    assert all(b["data"]["challenge_id"] == "st1" for b in row)

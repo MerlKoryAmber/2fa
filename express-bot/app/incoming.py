@@ -9,11 +9,35 @@ def _first(*vals: object) -> str:
     return ""
 
 
+def _cmd_base(cmd: str) -> str:
+    """/2fa_approve@bot → /2fa_approve"""
+    c = (cmd or "").strip()
+    if "@" in c:
+        c = c.split("@", 1)[0].strip()
+    return c
+
+
 def parse_incoming(body: dict) -> dict:
-    command = body.get("command") or {}
+    """BotX: command — dict {body,data} или строка; data иногда на верхнем уровне."""
+    raw_cmd = body.get("command")
     frm = body.get("from") or {}
-    if isinstance(command, dict) and not frm:
-        frm = command.get("from") or {}
+    cmd_data: dict = {}
+
+    if isinstance(raw_cmd, dict):
+        frm = frm or raw_cmd.get("from") or {}
+        cmd_body = _first(raw_cmd.get("body"), body.get("body"))
+        if isinstance(raw_cmd.get("data"), dict):
+            cmd_data = dict(raw_cmd["data"])
+    elif isinstance(raw_cmd, str):
+        cmd_body = raw_cmd
+    else:
+        cmd_body = _first(body.get("body"))
+
+    if not cmd_data and isinstance(body.get("data"), dict):
+        cmd_data = dict(body["data"])
+
+    cmd_body = _cmd_base(str(cmd_body or ""))
+
     user_name = _first(
         frm.get("user_name"),
         frm.get("username"),
@@ -25,8 +49,8 @@ def parse_incoming(body: dict) -> dict:
         ),
     )
     return {
-        "cmd_body": _first(command.get("body"), body.get("body")).strip(),
-        "cmd_data": command.get("data") if isinstance(command.get("data"), dict) else {},
+        "cmd_body": cmd_body,
+        "cmd_data": cmd_data,
         "user_huid": _first(frm.get("user_huid"), frm.get("huid")),
         "user_name": user_name,
         "user_email": _first(frm.get("email"), frm.get("user_email"), frm.get("mail"), frm.get("ad_login")),

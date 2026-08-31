@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — fix NPS 117 при Express push: многопоточный radius
+
+- `radius/server.py`: ThreadPoolExecutor (`RADIUS_WORKERS`, default 32) — hold push не блокирует UDP; ретраи HNPS получают ответ
+- Лог `api_s=` — длительность hold; TOTP otp_only без изменений
+
 ## 2026-08-31 (МСК) — Express push: hold как Kontur, аудит, otp_only
 
 - `otp_only` + `express_push`: 2-й фактор только Approve/Deny; `User-Password` не проверяем (как TOTP-only для кода)

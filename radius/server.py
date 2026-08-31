@@ -3,7 +3,9 @@ import ipaddress
 import logging
 import os
 import socket
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from pyrad.dictionary import Dictionary
@@ -16,6 +18,8 @@ API = os.environ.get("API_URL", "http://api:8000")
 HOST_ENV = "/run/mk2fa/host.env"
 # Push hold в API до push_wait_seconds (до 300). 4 с — RADIUS обрывался до Approve.
 API_TIMEOUT = float(os.environ.get("RADIUS_API_TIMEOUT", "120"))
+# NPS ретраит Access-Request, пока ждём push; один поток блокировал весь UDP → reason 117.
+WORKERS = max(4, int(os.environ.get("RADIUS_WORKERS", "32")))
 
 
 def _clean_token(raw: str | None) -> str:
@@ -45,6 +49,8 @@ LISTEN = os.environ.get("RADIUS_LISTEN", "0.0.0.0")
 PORT = int(os.environ.get("RADIUS_PORT", "1812"))
 DICT = Dictionary(os.path.join(os.path.dirname(__file__), "dictionary"))
 _RUNTIME = {"secret": FALLBACK_SECRET, "allowed": [], "at": 0.0}
+_RUNTIME_LOCK = threading.Lock()
+_SEND_LOCK = threading.Lock()
 
 
 def _parse_allowed(raw: str) -> list[str]:
@@ -79,8 +85,9 @@ def _is_allowed(ip: str, rules: list[str]) -> bool:
 
 
 def _refresh_runtime() -> tuple[bytes, list[str]]:
-    if time.time() - _RUNTIME["at"] < 60:
-        return _RUNTIME["secret"], _RUNTIME["allowed"]
+    with _RUNTIME_LOCK:
+        if time.time() - _RUNTIME["at"] < 60:
+            return _RUNTIME["secret"], _RUNTIME["allowed"]
     secret = FALLBACK_SECRET
     allowed: list[str] = []
     try:
@@ -96,12 +103,14 @@ def _refresh_runtime() -> tuple[bytes, list[str]]:
             data = r.json()
             secret = data.get("shared_secret", FALLBACK_SECRET.decode()).encode()
             allowed = _parse_allowed(data.get("allowed_clients", ""))
-            _RUNTIME["secret"] = secret
-            _RUNTIME["allowed"] = allowed
-            _RUNTIME["at"] = time.time()
+            with _RUNTIME_LOCK:
+                _RUNTIME["secret"] = secret
+                _RUNTIME["allowed"] = allowed
+                _RUNTIME["at"] = time.time()
     except Exception:
         log.exception("failed to refresh radius config from api")
-    return _RUNTIME["secret"], _RUNTIME["allowed"]
+    with _RUNTIME_LOCK:
+        return _RUNTIME["secret"], _RUNTIME["allowed"]
 
 
 def _pw(pkt: AuthPacket) -> str:
@@ -156,6 +165,7 @@ def handle(data: bytes, addr) -> bytes | None:
 
     payload = {"username": username, "password": password, "state": state, "nas_ip": addr[0]}
     result = {"decision": "reject", "reply_message": "Internal error"}
+    t0 = time.time()
     try:
         with httpx.Client(timeout=API_TIMEOUT, trust_env=False) as client:
             r = client.post(
@@ -226,31 +236,45 @@ def handle(data: bytes, addr) -> bytes | None:
             log.exception("Reply-Message skip")
 
     out = reply.ReplyPacket()
+    elapsed = time.time() - t0
     log.info(
-        "user=%s from=%s:%s decision=%s reply_len=%s proxy_state=%s",
+        "user=%s from=%s:%s decision=%s reply_len=%s proxy_state=%s api_s=%.2f",
         username,
         addr[0],
         addr[1],
         decision,
         len(out),
         "Proxy-State" in pkt,
+        elapsed,
     )
     return out
+
+
+def _serve_packet(sock: socket.socket, data: bytes, addr) -> None:
+    try:
+        out = handle(data, addr)
+        if out:
+            with _SEND_LOCK:
+                sent = sock.sendto(out, addr)
+            log.info("sent %s bytes to %s:%s", sent, addr[0], addr[1])
+    except Exception:
+        log.exception("packet from %s", addr)
 
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((LISTEN, PORT))
-    log.info("RADIUS listening on %s:%s api_timeout=%ss", LISTEN, PORT, API_TIMEOUT)
-    while True:
-        data, addr = sock.recvfrom(8192)
-        try:
-            out = handle(data, addr)
-            if out:
-                sent = sock.sendto(out, addr)
-                log.info("sent %s bytes to %s:%s", sent, addr[0], addr[1])
-        except Exception:
-            log.exception("packet from %s", addr)
+    log.info(
+        "RADIUS listening on %s:%s api_timeout=%ss workers=%s",
+        LISTEN,
+        PORT,
+        API_TIMEOUT,
+        WORKERS,
+    )
+    with ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="radius") as pool:
+        while True:
+            data, addr = sock.recvfrom(8192)
+            pool.submit(_serve_packet, sock, data, addr)
 
 
 if __name__ == "__main__":

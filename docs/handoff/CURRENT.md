@@ -6,30 +6,28 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~16:00 МСК |
-| GitHub `main` | после коммита express push hold / otp_only |
+| Дата | 2026-08-31 ~16:50 МСК |
+| GitHub `main` | fix radius workers (NPS 117 на push) |
 | Alembic head | **010** |
-| Lab | `/opt/2fa` — `update.sh` после pull |
+| Lab | `/opt/2fa` — pull + `update.sh` (пересборка **radius**) |
 
 ## Что вошло (код)
 
-- Express push `otp_only`: CP проверяет 1-й фактор; MK2FA — только push (hold, без Challenge)
-- Аудит `EXPRESS_PUSH_HOLD` (wait_Ns); poll Approve 0.25 с
-- Тест: TOTP в `User-Password` не принимается при сценарии `express_push`
-- Ранее: парсер Approve BotX, RADIUS hold 120s, express_channel_enabled
+- **radius:** пул потоков на UDP — hold Express push не блокирует ретраи HNPS (reason 117 при рабочем TOTP)
+- Ранее: express push otp_only hold, Approve BotX, `EXPRESS_PUSH_HOLD`, RADIUS_API_TIMEOUT=120
 
 ## Хвосты
 
-- **Lab:** `git pull` + `sudo ./scripts/update.sh` (api)
-- **HNPS:** Remote RADIUS timeout ≥ `push_wait_seconds` + запас (иначе reject на CP, Accept в аудите поздно)
-- E2E U1807: пароль → hold (как Kontur) → Approve → VPN без TOTP при `express_push`
+- **Lab:** `git pull` → `sudo ./scripts/update.sh` → VPN U1807 + Approve
+- В логе radius: `workers=32`, на push `api_s=…`
+- E2E: без 117 на HNPS при `express_push`
 
 ## Не делать
 
-- Двухфазный Access-Challenge для CP push — рисует поле OTP
-- Коммит без CHANGELOG/handoff
+- Двухфазный Access-Challenge для CP push — поле OTP
+- Откат radius в однопоток
 
 ## Следующий агент
 
-1. Lab VPN U1807 + таймстемпы аудита vs HNPS
-2. Если timeout — поднять таймаут RADIUS на HNPS, не менять схему на Challenge
+1. Приёмка push VPN после rebuild radius
+2. Если 117 остаётся — таймстемпы NPS vs `api_s` в radius log

@@ -119,8 +119,9 @@ firewalld на hmk2fa: **8030/tcp** (или 443) **с адресов BotX**.
 ## Express и политика
 
 1. В карточке бота «Адрес» = URL **этого** listener на hmk2fa, не хост BotX.
-2. Пользователь в Express: `/start` (привязка чата).
-3. Политика: ExpressMS = кнопки (`push`); метод пользователя EXPRESSMS. TOTP не переключать.
+2. В консоли Express у бота: **`allow_chat_creating` = true** — иначе личный чат по email не создать (`chats/personal` часто 404 до первого контакта).
+3. Пользователь: `/start` (кэш chat_id) **или** push по email (бот сам вызовет `chats/create`).
+4. Политика: сценарий с Express push; у пользователя галка «Получать push в Express».
 
 Проверка: `curl -fsS http://127.0.0.1:8030/health`  
 Лог: `podman-compose logs -f express-bot`

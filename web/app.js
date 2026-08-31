@@ -516,7 +516,7 @@ function expressStatusText(u) {
     return "Express: включён — " + email + ", chat_id " + chat + ".";
   }
   if (email) {
-    return "Express: включён — push по email " + email + " (lookup BotX). /start не обязателен.";
+    return "Express: включён — push по email " + email + " (lookup BotX). Если push не приходит — один раз /start боту или allow_chat_creating в карточке бота.";
   }
   if (chat) {
     return "Express: включён — только chat_id, без email AD — лучше догрузить LDAP.";

@@ -118,6 +118,38 @@ def _pick_chat(data: dict) -> str:
     ).strip()
 
 
+async def _fetch_personal_chat_id(client: httpx.AsyncClient, host: str, headers: dict, huid: str) -> str:
+    """Личный чат бот↔user. 404 — чата ещё нет (пользователь не писал боту)."""
+    for path in (
+        "/api/v1/botx/chats/personal",
+        "/api/v3/botx/chats/personal",
+        "/api/v4/botx/chats/personal",
+    ):
+        cr = await client.get(f"{host}{path}", headers=headers, params={"user_huid": huid})
+        if cr.status_code < 400 and cr.content:
+            chat_id = _pick_chat(cr.json())
+            if chat_id:
+                return chat_id
+        log.info("botx personal %s status=%s huid=%s", path, cr.status_code, huid)
+    return ""
+
+
+async def _create_personal_chat(client: httpx.AsyncClient, host: str, headers: dict, huid: str) -> str:
+    """Создать личный чат (или вернуть id существующего). Нужен allow_chat_creating у бота."""
+    r = await client.post(
+        f"{host}/api/v3/botx/chats/create",
+        headers=headers,
+        json={"chat_type": "chat", "members": [huid]},
+    )
+    log.info("botx chats/create status=%s huid=%s", r.status_code, huid)
+    if r.status_code < 400 and r.content:
+        chat_id = _pick_chat(r.json())
+        if chat_id:
+            return chat_id
+    log.warning("botx chats/create failed status=%s body=%s", r.status_code, (r.text or "")[:200])
+    return ""
+
+
 async def lookup_by_email(email: str, cts_host: str = "") -> dict:
     """Ищем huid/chat в BotX. Формат ответа на on-prem разный — парсим мягко."""
     host = api_host_for(cts_host)
@@ -143,11 +175,7 @@ async def lookup_by_email(email: str, cts_host: str = "") -> dict:
         huid = _pick_huid(data)
         chat_id = _pick_chat(data)
         if huid and not chat_id:
-            cr = await client.get(
-                f"{host}/api/v3/botx/chats/personal",
-                headers=headers,
-                params={"user_huid": huid},
-            )
-            if cr.status_code < 400 and cr.content:
-                chat_id = _pick_chat(cr.json())
+            chat_id = await _fetch_personal_chat_id(client, host, headers, huid)
+        if huid and not chat_id:
+            chat_id = await _create_personal_chat(client, host, headers, huid)
         return {"user_huid": huid, "chat_id": chat_id}

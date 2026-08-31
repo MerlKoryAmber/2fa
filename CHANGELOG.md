@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — BotX: личный чат при push по email
+
+- `lookup_by_email`: v1/v3/v4 `chats/personal`; при 404 — `POST chats/create` (`chat_type: chat`) для проактивного push
+- README: `allow_chat_creating` у бота в консоли Express; подсказка в админке
+
 ## 2026-08-31 (МСК) — push: trust_env=False и логи с временем
 
 - `express_push`: `httpx` с `trust_env=False` — иначе HTTP_PROXY перехватывает `express-bot:8030` → ложный 403 (как у radius)

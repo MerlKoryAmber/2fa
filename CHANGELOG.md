@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — handoff: Express push на лабе принят (NPS 30 с)
+
+- VPN U1807: push + Approve работает при HNPS Connection timeout ≥ 30 с
+- CP профиль AD+RADIUS 2FA: поле OTP обязательно — заглушка `000000` при express_push (MK2FA password не проверяет)
+- `docs/handoff/CURRENT.md` — полный срез для продолжения с другого клиента
+
 ## 2026-08-31 (МСК) — docs: NPS 117 при push = Connection timeout 5 с
 
 - `docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md` — HNPS Load Balancing timeout ≥ push_wait

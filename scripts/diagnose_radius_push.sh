@@ -21,6 +21,13 @@ if [[ -n "$RADIUS_CTR" ]]; then
   podman logs "$RADIUS_CTR" 2>&1 | grep -E 'RADIUS listening|workers=' | tail -3 || true
   log "--- radius last packets (${USER_FILTER}) ---"
   podman logs --since 20m "$RADIUS_CTR" 2>&1 | grep -E "recv user=${USER_FILTER}|user=${USER_FILTER}.*decision=" | tail -20 || true
+  last_accept="$(podman logs --since 20m "$RADIUS_CTR" 2>&1 | grep -E "user=${USER_FILTER}.*decision=accept.*api_s=" | tail -1 || true)"
+  if [[ -n "$last_accept" ]]; then
+    api_s="$(printf '%s' "$last_accept" | sed -n 's/.*api_s=\([0-9.]*\).*/\1/p')"
+    if [[ -n "$api_s" ]] && awk -v t="$api_s" 'BEGIN{exit!(t>5.0)}'; then
+      warn "api_s=${api_s}s > 5s при accept — типично HNPS Connection timeout=5 (default). См. docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md"
+    fi
+  fi
 else
   warn "контейнер radius не найден"
 fi
@@ -44,4 +51,5 @@ if [[ -n "$DB_CTR" ]]; then
 fi
 
 log "ожидаем на push: EXPRESS_PUSH_SEND (1x) → EXPRESS_PUSH_REUSE (ретраи NPS) → HOLD → DECISION → RADIUS_ACCEPT"
-log "в radius: несколько recv с разным id=, один push; decision=accept на каждом ретрае после Approve"
+log "117 при accept в radius: HNPS Remote RADIUS Server Group → Connection timeout ≥ push_wait+30с (default NPS = 5с)"
+log "док: docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md"

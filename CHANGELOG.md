@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — docs: NPS 117 при push = Connection timeout 5 с
+
+- `docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md` — HNPS Load Balancing timeout ≥ push_wait
+- diagnose: предупреждение при `api_s` > 5; radius log warning на медленный accept
+
 ## 2026-08-31 (МСК) — fix diagnose_radius_push: колонка audit timestamp
 
 - `scripts/diagnose_radius_push.sh`: `audit_events.timestamp` (не `created_at`)

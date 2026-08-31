@@ -111,7 +111,7 @@ python3 scripts/radius_demo.py
 
 Gateway берёт secret и **allowed_clients** (IP/CIDR) с API `/internal/radius/config` (кэш ~60 с). Пустой список NAS = любой источник. Secret в панели / `.env` должен совпасть с NAS/NPS (VPN/UAG) — это настройка площадки, не правка кода.
 
-Сервис `radius` слушает UDP **на сети хоста** (`network_mode: host`, API `http://127.0.0.1:8000`). Публикация `1812:1812/udp` через bridge/DNAT ломает путь ответа. При Express push hold — **пул потоков** (`RADIUS_WORKERS`, default 32) и **дедуп state** на ретраях HNPS (иначе reason **117** при рабочем TOTP). Диагностика на lab: `sudo ./scripts/diagnose_radius_push.sh U1807`.
+Сервис `radius` слушает UDP **на сети хоста** (`network_mode: host`, API `http://127.0.0.1:8000`). Express push hold — пул потоков + дедуп state. **NPS 117 при TOTP ok:** на HNPS поднять **Connection timeout** Remote RADIUS Server Group (default **5 с**) ≥ `push_wait_seconds` — см. `docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md`. Диагностика: `sudo ./scripts/diagnose_radius_push.sh U1807`.
 
 Политика: несколько записей с областью клиентов (`*` / IP / CIDR). RADIUS берёт самое узкое совпадение. Режим **«Что приходит на RADIUS»**: `challenge` или `otp_only`. **Сценарий 2FA:** только TOTP / Express push / push затем TOTP (`push_wait_seconds`). Deny в Express — всегда отказ. У пользователя — доступные **каналы**, не «активный метод». Telegram в сценариях пока не участвует.
 

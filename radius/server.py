@@ -250,6 +250,12 @@ def handle(data: bytes, addr) -> bytes | None:
 
     out = reply.ReplyPacket()
     elapsed = time.time() - t0
+    if decision == "accept" and elapsed > 5.0:
+        log.warning(
+            "slow accept user=%s api_s=%.2f — if NPS reason 117, raise HNPS Connection timeout (default 5s)",
+            username,
+            elapsed,
+        )
     log.info(
         "user=%s from=%s:%s id=%s decision=%s reply_len=%s proxy_state=%s api_s=%.2f",
         username,

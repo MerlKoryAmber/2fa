@@ -6,28 +6,31 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~17:40 МСК |
-| GitHub `main` | после fix diagnose audit timestamp |
+| Дата | 2026-08-31 ~17:50 МСК |
+| GitHub `main` | docs NPS Connection timeout + diagnose warn |
 | Alembic head | **010** |
-| Lab | `git pull` + `sudo ./scripts/update.sh` (api + radius) |
+| Лаба HMK2FA | pull + update; **HNPS timeout** — не код MK2FA |
 
-## Что вошло (код)
+## Диагноз 117 (лаба, подтверждено)
 
-- **Дедуп push:** ретраи HNPS → `EXPRESS_PUSH_REUSE`, один state; без второго push
-- **radius:** workers=32, лог `recv id=`; diagnose: `scripts/diagnose_radius_push.sh U1807`
-- Ранее: otp_only express hold, Approve BotX, RADIUS_API_TIMEOUT=120
+- MK2FA: `decision=accept`, `api_s≈6` — ответ есть
+- HNPS: **117** — таймаут **Remote RADIUS Server Group → Connection timeout** (default **5 с**)
+- TOTP < 1 с → ок; push hold > 5 с → 117 до Accept
 
-## Хвосты
+## Действие на лабе (HNPS)
 
-- Lab VPN U1807: один `EXPRESS_PUSH_SEND`, ретраи → `REUSE`, затем `RADIUS_ACCEPT`
-- HNPS без 117 при Approve в окне `push_wait_seconds`
+Remote RADIUS Server Group (MK2FA) → **Connection timeout = 120** (≥ push_wait 60 + запас).  
+Док: `docs/backlog/NPS_EXPRESS_PUSH_TIMEOUT.md`
 
-## Не делать
+## Код MK2FA (готово)
 
-- Access-Challenge на CP push
-- Новый push на каждый ретрай NPS
+- workers=32, дедуп push, diagnose, hold otp_only
+
+## tes (удалённая)
+
+Только git после приёмки на лабе.
 
 ## Следующий агент
 
-1. `./scripts/diagnose_radius_push.sh` после попытки VPN
-2. Если 117 — сверить `recv id=` в radius с Event Viewer HNPS
+1. После поднятия timeout на HNPS — VPN U1807 + Approve
+2. Не копать MK2FA, если `accept` в radius и `api_s` > 5

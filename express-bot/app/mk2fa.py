@@ -23,7 +23,7 @@ async def bind_user(*, email: str, huid: str, chat_id: str, name: str) -> dict:
     base = _base()
     if not base:
         return {"ok": False, "error": "mk2fa_url_empty"}
-    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds, trust_env=False) as client:
         r = await client.post(
             f"{base}/internal/express/bind",
             headers=_headers(),
@@ -39,7 +39,7 @@ async def submit_decision(*, state: str, decision: str, huid: str) -> dict:
     base = _base()
     if not base:
         return {"ok": False, "error": "mk2fa_url_empty"}
-    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds, trust_env=False) as client:
         r = await client.post(
             f"{base}/internal/express/decision",
             headers=_headers(),

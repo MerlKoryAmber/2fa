@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 
 import httpx
 import redis
@@ -42,22 +43,48 @@ def request_bot_push(*, state: str, username: str, email: str, chat_id: str) -> 
     base = (settings.express_bot_url or "").strip().rstrip("/")
     token = expected_internal_token() or (settings.internal_api_token or "").strip()
     if not base or not token:
-        log.error("express push skipped: EXPRESS_BOT_URL or INTERNAL_API_TOKEN empty")
-        return False
-    try:
-        r = httpx.post(
-            f"{base}/internal/push",
-            headers={"X-Internal-Token": token},
-            json={
-                "state": state,
-                "username": username,
-                "email": email or "",
-                "chat_id": chat_id or "",
-            },
-            timeout=10.0,
+        log.error(
+            "express push skipped user=%s base_set=%s token_len=%s host_env=%s",
+            username,
+            bool(base),
+            len(token),
+            Path("/run/mk2fa/host.env").is_file(),
         )
+        return False
+    url = f"{base}/internal/push"
+    try:
+        # trust_env=False — иначе HTTP_PROXY перехватывает express-bot:8030 → чужой 403
+        with httpx.Client(timeout=10.0, trust_env=False) as client:
+            r = client.post(
+                url,
+                headers={"X-Internal-Token": token},
+                json={
+                    "state": state,
+                    "username": username,
+                    "email": email or "",
+                    "chat_id": chat_id or "",
+                },
+            )
         r.raise_for_status()
         return True
+    except httpx.HTTPStatusError as exc:
+        body = (exc.response.text or "")[:300]
+        log.error(
+            "express bot push HTTP %s user=%s url=%s body=%s sent_token_len=%s host_env=%s",
+            exc.response.status_code,
+            username,
+            url,
+            body,
+            len(token),
+            Path("/run/mk2fa/host.env").is_file(),
+        )
+        return False
     except Exception:
-        log.exception("express bot push failed user=%s", username)
+        log.exception(
+            "express bot push failed user=%s url=%s sent_token_len=%s host_env=%s",
+            username,
+            url,
+            len(token),
+            Path("/run/mk2fa/host.env").is_file(),
+        )
         return False

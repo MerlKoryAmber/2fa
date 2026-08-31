@@ -68,5 +68,6 @@ sleep 3
 alembic_upgrade
 wait_health
 smoke_internal_radius
+smoke_internal_express_push
 
 log "обновление завершено (alembic уже в этом скрипте; руками upgrade не нужен)"

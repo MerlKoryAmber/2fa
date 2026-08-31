@@ -8,6 +8,7 @@ COPY alembic ./alembic
 COPY scripts ./scripts
 COPY app ./app
 COPY entrypoint.sh ./
+COPY log_config.json ./
 RUN chmod +x entrypoint.sh
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000

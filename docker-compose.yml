@@ -31,6 +31,8 @@ services:
       DATABASE_URL: postgresql+psycopg2://mfa:${POSTGRES_PASSWORD}@db:5432/mfa
       REDIS_URL: redis://redis:6379/0
       SSL_DATA_DIR: /data/ssl
+      NO_PROXY: localhost,127.0.0.1,api,express-bot,db,redis
+      no_proxy: localhost,127.0.0.1,api,express-bot,db,redis
     volumes:
       - ssl_certs:/data/ssl
       - ./.env:/run/mk2fa/host.env:ro,z
@@ -159,6 +161,8 @@ services:
     env_file: .env
     environment:
       MK2FA_API_URL: http://api:8000
+      NO_PROXY: localhost,127.0.0.1,api,express-bot,db,redis
+      no_proxy: localhost,127.0.0.1,api,express-bot,db,redis
     volumes:
       - ./.env:/run/mk2fa/host.env:ro,z
     ports:

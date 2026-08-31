@@ -104,6 +104,7 @@ main() {
   alembic_upgrade
   wait_health
   smoke_internal_radius
+  smoke_internal_express_push
 
   local pub detected
   detected="$(suggest_public_base_url)"

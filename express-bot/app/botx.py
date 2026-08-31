@@ -58,7 +58,7 @@ async def send_notification(group_chat_id: str, notification: dict, cts_host: st
         raise RuntimeError("BOTX_API_HOST is empty")
     url = f"{host}/api/v4/botx/notifications/direct/sync"
     payload = {"group_chat_id": group_chat_id, "notification": notification}
-    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds, trust_env=False) as client:
         r = await client.post(url, headers=_headers(host), json=payload)
     log.info("botx notify status=%s chat=%s", r.status_code, group_chat_id)
     if r.status_code not in (200, 202, 204) and r.status_code >= 300:
@@ -124,7 +124,7 @@ async def lookup_by_email(email: str, cts_host: str = "") -> dict:
     if not host or not email:
         return {}
     headers = _headers(host)
-    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=settings.http_timeout_seconds, trust_env=False) as client:
         r = await client.get(
             f"{host}/api/v3/botx/users/by_email",
             headers=headers,

@@ -570,6 +570,66 @@ print('host.env', Path('/run/mk2fa/host.env').is_file())
   die "smoke RADIUS→API: HTTP ${code:-нет ответа} (нужен 200)"
 }
 
+# API → express-bot /internal/push: 403 = токен или proxy; 400 no_chat — ок для smoke.
+smoke_internal_express_push() {
+  local api code out
+  api="$(find_compose_ctr api)"
+  if [[ -z "$api" ]]; then
+    warn "smoke express push: контейнер api не найден — пропуск"
+    return 0
+  fi
+  log "smoke: API → express-bot /internal/push ($api)"
+  out="$(ctr_exec "$api" python -c "
+import os
+import httpx
+from pathlib import Path
+from app.config import settings
+from app.internal_token import expected_internal_token
+
+token = (expected_internal_token() or settings.internal_api_token or '').strip()
+base = (settings.express_bot_url or '').strip().rstrip('/')
+print('token_len', len(token), 'host_env', Path('/run/mk2fa/host.env').is_file(), 'bot_url', base)
+if not base or not token:
+    print('skip')
+    raise SystemExit(0)
+r = httpx.post(
+    base + '/internal/push',
+    headers={'X-Internal-Token': token},
+    json={'state': 'smoke-probe', 'username': '_smoke', 'email': '', 'chat_id': ''},
+    timeout=10,
+    trust_env=False,
+)
+print(r.status_code)
+print((r.text or '')[:120])
+" 2>&1 || true)"
+  log "smoke express push out: $out"
+  code="$(printf '%s\n' "$out" | grep -E '^[0-9]{3}$' | tail -1 || true)"
+  if [[ "$code" == "403" ]]; then
+    bot="$(find_compose_ctr express-bot)"
+    if [[ -n "$bot" ]]; then
+      ctr_exec "$bot" python -c "
+from pathlib import Path
+from app.internal_token import expected_internal_token
+from app.config import settings
+import os
+t = expected_internal_token() or settings.internal_api_token or ''
+print('bot token_len', len(t.strip()), 'host_env', Path('/run/mk2fa/host.env').is_file())
+print('bot env_len', len((os.environ.get('INTERNAL_API_TOKEN') or '').strip()))
+" 2>&1 || true
+    fi
+    die "smoke API→express-bot: HTTP 403 (токен или HTTP_PROXY — нужен trust_env=False в api)"
+  fi
+  if [[ "$code" == "400" || "$code" == "200" ]]; then
+    log "smoke API→express-bot: HTTP $code (токен ок)"
+    return 0
+  fi
+  if printf '%s\n' "$out" | grep -q '^skip$'; then
+    warn "smoke express push: EXPRESS_BOT_URL или токен пуст — пропуск"
+    return 0
+  fi
+  die "smoke API→express-bot: HTTP ${code:-нет ответа} (ожидали 200/400, не 403)"
+}
+
 wait_health() {
   local url="${1:-https://127.0.0.1/health}"
   local i

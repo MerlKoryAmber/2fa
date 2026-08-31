@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — push: trust_env=False и логи с временем
+
+- `express_push`: `httpx` с `trust_env=False` — иначе HTTP_PROXY перехватывает `express-bot:8030` → ложный 403 (как у radius)
+- compose: `NO_PROXY` для api и express-bot; подробный лог ошибки push (HTTP, body, token_len)
+- uvicorn `log_config.json` — access/error с меткой времени; smoke API→express-bot в `install.sh`/`update.sh` (403 = fail)
+
 ## 2026-08-31 (МСК) — fix push 403: единый INTERNAL_API_TOKEN
 
 - API `request_bot_push`: токен из `expected_internal_token()` (как RADIUS), не только `settings`

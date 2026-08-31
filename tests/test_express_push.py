@@ -208,3 +208,30 @@ def test_express_push_scenario_falls_back_to_totp_when_channel_off(db_session, f
         out = handle_access_request(db_session, "ems6", code, None)
     assert out["decision"] == "accept"
     push.assert_not_called()
+
+
+def test_otp_only_express_push_ignores_totp_in_password(db_session, fake_redis):
+    """express_push: даже если CP прислал TOTP в User-Password — проверяем только push."""
+    secret = "JBSWY3DPEHPK3PXP"
+    db_session.add(
+        Policy(radius_scheme_preference="otp_only", mfa_scenario="express_push", expressms_mode="push")
+    )
+    db_session.add(
+        User(
+            ad_username="ems7",
+            otp_method="NONE",
+            express_channel_enabled=True,
+            ldap_email="e7@corp.local",
+            totp_secret_encrypted=encrypt_totp_secret(secret),
+            totp_confirmed=True,
+        )
+    )
+    db_session.commit()
+    code = pyotp.TOTP(secret).now()
+
+    with patch("app.express_push.request_bot_push", return_value=True) as push, patch(
+        "app.express_push.wait_decision", return_value="approve"
+    ):
+        out = handle_access_request(db_session, "ems7", code, None)
+    assert out["decision"] == "accept"
+    push.assert_called_once()

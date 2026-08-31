@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — Express push: hold как Kontur, аудит, otp_only
+
+- `otp_only` + `express_push`: 2-й фактор только Approve/Deny; `User-Password` не проверяем (как TOTP-only для кода)
+- Sync hold RADIUS до `push_wait_seconds` (без Access-Challenge на push)
+- Аудит `EXPRESS_PUSH_HOLD`; poll Redis 0.25 с; тест: TOTP в password не обходит push
+
 ## 2026-08-31 (МСК) — fix Approve: парсер webhook кнопок BotX
 
 - express-bot: `command` как строка, `data` на верхнем уровне, `@bot`, `challenge_id` в bubble

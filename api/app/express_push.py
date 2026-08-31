@@ -54,7 +54,7 @@ def wait_decision(state: str, ttl: int) -> str:
         if val in ("approve", "deny"):
             log.info("express push decision=%s state=%s", val, state[:12])
             return str(val)
-        time.sleep(0.4)
+        time.sleep(0.25)
     log.warning("express push timeout state=%s waited=%ss", state[:12], ttl)
     return "timeout"
 

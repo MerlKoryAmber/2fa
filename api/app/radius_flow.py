@@ -105,7 +105,12 @@ def _start(db: Session, username: str, password: str, nas_ip: str | None = None)
 def _otp_only(
     db: Session, username: str, password: str, policy: Policy, nas_ip: str | None = None
 ) -> dict:
-    """NAS (UAG/checkpoint) уже проверил LDAP. User-Password = TOTP (или пусто при push-hold)."""
+    """NAS (Check Point / UAG) уже проверил 1-й фактор (LDAP).
+
+    На RADIUS приходит только 2-й фактор:
+    - TOTP: User-Password = код;
+    - Express push: Approve/Deny (поле пароля не проверяем, hold до ответа).
+    """
     user = find_radius_user(db, username)
     if not user:
         audit(db, "RADIUS_REJECT", username=username, nas_ip=nas_ip, reason="unknown_user")
@@ -242,6 +247,10 @@ def _express_push_hold(
     otp_only: bool = True,
     then_totp: bool = False,
 ) -> dict:
+    """2-й фактор = только push. LDAP/пароль CP уже проверил (otp_only).
+
+    User-Password в пакете не используется, кроме fallback express_push_then_totp.
+    """
     from app.express_push import (
         clear_push_fallback,
         mark_push_fallback,
@@ -285,6 +294,15 @@ def _express_push_hold(
         audit(db, "RADIUS_REJECT", user_id=user.id, username=user.ad_username, nas_ip=nas_ip, reason="express_push_send")
         return {"decision": "reject", "reply_message": "Push was not sent"}
 
+    # Kontur-like UX: один RADIUS-запрос «висит» до Approve/Deny, без Access-Challenge.
+    audit(
+        db,
+        "EXPRESS_PUSH_HOLD",
+        user_id=user.id,
+        username=user.ad_username,
+        nas_ip=nas_ip,
+        reason=f"wait_{wait_s}s",
+    )
     result = wait_decision(state, wait_s)
     row.consumed = True
     db.commit()

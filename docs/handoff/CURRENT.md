@@ -6,23 +6,30 @@
 
 | Поле | Значение |
 |------|----------|
-| Дата | 2026-08-31 ~15:10 МСК |
-| GitHub | `main` (fix парсер Approve BotX) |
+| Дата | 2026-08-31 ~16:00 МСК |
+| GitHub `main` | после коммита express push hold / otp_only |
 | Alembic head | **010** |
+| Lab | `/opt/2fa` — `update.sh` после pull |
 
 ## Что вошло (код)
 
-- Approve в Express: парсер webhook (string command, challenge_id); «Вход разрешён» на стенде подтверждён
-- Ранее: RADIUS hold 120s, chats/create, trust_env, express_channel_enabled
+- Express push `otp_only`: CP проверяет 1-й фактор; MK2FA — только push (hold, без Challenge)
+- Аудит `EXPRESS_PUSH_HOLD` (wait_Ns); poll Approve 0.25 с
+- Тест: TOTP в `User-Password` не принимается при сценарии `express_push`
+- Ранее: парсер Approve BotX, RADIUS hold 120s, express_channel_enabled
 
 ## Хвосты
 
-- **Выкат:** `update.sh` — express-bot + api (логи decision)
-- **Check Point:** VPN Accept только если Approve **до** `express_push_timeout`; CP RADIUS timeout ≥ push_wait
-- otp_only: поле OTP пустое на push-попытке или сценарий только push без TOTP в том же окне
-- E2E: Approve → `EXPRESS_PUSH_DECISION` + `RADIUS_ACCEPT` в аудите
+- **Lab:** `git pull` + `sudo ./scripts/update.sh` (api)
+- **HNPS:** Remote RADIUS timeout ≥ `push_wait_seconds` + запас (иначе reject на CP, Accept в аудите поздно)
+- E2E U1807: пароль → hold (как Kontur) → Approve → VPN без TOTP при `express_push`
+
+## Не делать
+
+- Двухфазный Access-Challenge для CP push — рисует поле OTP
+- Коммит без CHANGELOG/handoff
 
 ## Следующий агент
 
-1. После update — VPN U1807, Approve в окне push_wait
-2. Если timeout в аудите — CP timeout или Approve поздно
+1. Lab VPN U1807 + таймстемпы аудита vs HNPS
+2. Если timeout — поднять таймаут RADIUS на HNPS, не менять схему на Challenge

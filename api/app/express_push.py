@@ -9,6 +9,7 @@ import httpx
 import redis
 
 from app.config import settings
+from app.internal_token import expected_internal_token
 from app.rate_limit import _redis
 
 log = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def wait_decision(state: str, ttl: int) -> str:
 
 def request_bot_push(*, state: str, username: str, email: str, chat_id: str) -> bool:
     base = (settings.express_bot_url or "").strip().rstrip("/")
-    token = (settings.internal_api_token or "").strip()
+    token = expected_internal_token() or (settings.internal_api_token or "").strip()
     if not base or not token:
         log.error("express push skipped: EXPRESS_BOT_URL or INTERNAL_API_TOKEN empty")
         return False

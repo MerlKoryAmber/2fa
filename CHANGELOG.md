@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — fix push 403: единый INTERNAL_API_TOKEN
+
+- API `request_bot_push`: токен из `expected_internal_token()` (как RADIUS), не только `settings`
+- express-bot: mount `host.env`, модуль `internal_token.py`; лог `got_len`/`exp_len` при 403 на `/internal/push`
+
 ## 2026-08-31 (МСК) — галка Express-канала у пользователя
 
 - `users.express_channel_enabled` (Alembic **010**): push только при явном включении; миграция включает у кого уже есть `expressms_id`

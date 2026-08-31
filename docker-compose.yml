@@ -159,6 +159,8 @@ services:
     env_file: .env
     environment:
       MK2FA_API_URL: http://api:8000
+    volumes:
+      - ./.env:/run/mk2fa/host.env:ro,z
     ports:
       - "8030:8030"
     depends_on:

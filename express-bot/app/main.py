@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
+from app.internal_token import expected_internal_token
 from app.handlers import handle_parsed, send_push
 from app.incoming import parse_incoming, should_ignore
 
@@ -15,9 +16,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 
 def _check_internal(token: str | None) -> None:
-    exp = (settings.internal_api_token or "").strip()
+    exp = expected_internal_token() or (settings.internal_api_token or "").strip()
     got = (token or "").strip()
     if not exp or got != exp:
+        log.warning("internal push reject got_len=%s exp_len=%s", len(got), len(exp))
         raise HTTPException(403, "forbidden")
 
 

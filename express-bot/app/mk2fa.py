@@ -5,12 +5,13 @@ import logging
 import httpx
 
 from app.config import settings
+from app.internal_token import expected_internal_token
 
 log = logging.getLogger("express-bot")
 
 
 def _headers() -> dict[str, str]:
-    token = (settings.internal_api_token or "").strip()
+    token = expected_internal_token() or (settings.internal_api_token or "").strip()
     return {"X-Internal-Token": token, "Content-Type": "application/json"}
 
 

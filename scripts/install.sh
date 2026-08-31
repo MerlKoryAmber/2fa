@@ -123,7 +123,7 @@ Health:      curl -sk https://127.0.0.1/health
 Пароль:      admin  (смените в панели после входа)
 Дальше:      Настройки → LDAP / RADIUS / SMTP
 Express:     curl -fsS http://127.0.0.1:8030/health
-             «Адрес бота»: ${pub}:8030/command
+             «Адрес бота»: ${pub}:8030 (без /command)
 Обновление:  sudo ${REPO_ROOT}/scripts/update.sh
 Удаление:    sudo ${REPO_ROOT}/scripts/uninstall.sh [--purge]
 

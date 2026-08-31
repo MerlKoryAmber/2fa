@@ -14,6 +14,7 @@ from app.enroll_service import (
     verify_enroll_proof,
 )
 from app.ldap_auth import authenticate_ldap
+from app.mfa_channels import sync_otp_method_from_channels
 from app.models import User
 from app.otp import totp_qr_png_bytes, totp_uri, verify_totp
 from app.radius_flow import default_policy
@@ -29,6 +30,7 @@ class EnrollAuthIn(BaseModel):
 
 class EnrollConfirmIn(BaseModel):
     code: str
+    express_channel_enabled: bool = False
     expressms_id: str | None = None
     telegram_chat_id: str | None = None
     enroll_proof: str
@@ -94,11 +96,12 @@ def confirm_enroll(token: str, body: EnrollConfirmIn, db: Session = Depends(get_
     if not verify_totp(user.totp_secret_encrypted, body.code.strip(), policy.totp_window_steps):
         raise HTTPException(400, "Неверный код TOTP")
     user.totp_confirmed = True
-    user.otp_method = "TOTP"
+    user.express_channel_enabled = bool(body.express_channel_enabled)
     if body.expressms_id and body.expressms_id.strip():
         user.expressms_id = body.expressms_id.strip()
     if body.telegram_chat_id and body.telegram_chat_id.strip():
         user.telegram_chat_id = body.telegram_chat_id.strip()
+    sync_otp_method_from_channels(user)
     from app.token_service import ensure_token_serial
 
     ensure_token_serial(user, db)

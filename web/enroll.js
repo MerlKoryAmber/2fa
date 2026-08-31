@@ -37,10 +37,12 @@ function showQr(token, data) {
       <label for="totp-code">Код из приложения</label>
       <input id="totp-code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" />
     </div>
-    <div class="field">
-      <label for="ems-id">ID в ExpressMS (опционально)</label>
-      <input id="ems-id" placeholder="логин или ID в ExpressMS" />
-      <p class="field-hint">Если укажете — сохраним для OTP через ExpressMS. Активный канал выберет администратор.</p>
+    <div class="field field-check">
+      <label class="check-row" for="enroll-express">
+        <input type="checkbox" id="enroll-express" />
+        <span>Получать push в Express</span>
+      </label>
+      <p class="field-hint">Approve/Deny в мессенджере Express при входе VPN (если политика использует push). Нужен email в AD; можно также написать боту /start.</p>
     </div>
     <div class="field">
       <label for="tg-id">Telegram chat_id (опционально)</label>
@@ -51,10 +53,9 @@ function showQr(token, data) {
   $("#confirm-btn").addEventListener("click", async () => {
     $("#enroll-err").textContent = "";
     const code = $("#totp-code").value.trim();
-    const ems = $("#ems-id").value.trim();
+    const expressOn = $("#enroll-express").checked;
     const tg = $("#tg-id").value.trim();
-    const body = { code, enroll_proof: data.enroll_proof };
-    if (ems) body.expressms_id = ems;
+    const body = { code, enroll_proof: data.enroll_proof, express_channel_enabled: expressOn };
     if (tg) body.telegram_chat_id = tg;
     const r = await fetch("/api/public/enroll/" + encodeURIComponent(token), {
       method: "POST",

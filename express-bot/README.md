@@ -3,8 +3,12 @@
 Бот ставится **на свой сервер 2FA** (`hmk2fa.interros.ru`), рядом с API.  
 Слушает **:8030**. BotX (платформа) — другой хост; URL для **отправки** — поле `BOTX_API_HOST`.
 
-«Адрес бота» в консоли Express: `https://hmk2fa.interros.ru:8030/command`  
-(если снаружи только 443 — проксируйте `/command` на `127.0.0.1:8030` и укажите `https://hmk2fa.interros.ru/command`.)
+«Адрес бота» в консоли Express: **`https://hmk2fa.interros.ru:8030`** — **без** `/command` на конце.  
+BotX сам дописывает пути: webhook `POST …/command`, статус `GET …/status`.  
+Если указать `…/command`, получится `…/command/command` → **404**.
+
+Если снаружи только 443 — проксируйте `/command` и `/status` на `127.0.0.1:8030`  
+и укажите базовый URL: `https://hmk2fa.interros.ru` (тоже без суффикса).
 
 ---
 

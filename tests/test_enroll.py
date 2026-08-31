@@ -138,3 +138,39 @@ def test_public_enroll_requires_auth(enroll_client, db_session):
     assert ok.status_code == 200
     db_session.refresh(user)
     assert user.totp_confirmed is True
+    assert user.express_channel_enabled is False
+
+
+def test_public_enroll_express_channel(enroll_client, db_session):
+    db_session.add(Policy())
+    secret = "JBSWY3DPEHPK3PXP"
+    user = User(
+        ad_username="demo2",
+        otp_method="TOTP",
+        ldap_email="demo2@lab.local",
+        totp_secret_encrypted=encrypt_totp_secret(secret),
+        totp_confirmed=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+    inv = create_invite(db_session, user, "admin", "demo2@lab.local", 3600)
+    db_session.commit()
+
+    auth = enroll_client.post(
+        f"/api/public/enroll/{inv.token}/auth",
+        json={"username": "demo2", "password": "demo"},
+    )
+    assert auth.status_code == 200
+    qr = auth.json()
+
+    import pyotp
+
+    code = pyotp.TOTP(secret).now()
+    ok = enroll_client.post(
+        f"/api/public/enroll/{inv.token}",
+        json={"code": code, "enroll_proof": qr["enroll_proof"], "express_channel_enabled": True},
+    )
+    assert ok.status_code == 200
+    db_session.refresh(user)
+    assert user.totp_confirmed is True
+    assert user.express_channel_enabled is True

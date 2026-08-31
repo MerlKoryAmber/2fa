@@ -465,7 +465,8 @@ function userChannelsSummary(u) {
   const bits = [];
   if (u.channel_totp || (u.has_totp && u.totp_confirmed)) bits.push("TOTP");
   else if (u.has_totp) bits.push("TOTP…");
-  if (u.channel_express || u.ldap_email || u.expressms_id) bits.push("Express");
+  if (u.channel_express) bits.push("Express");
+  else if (u.express_channel_enabled) bits.push("Express…");
   if (u.channel_telegram || u.telegram_chat_id) bits.push("TG");
   return bits.length ? bits.join(", ") : "нет каналов";
 }
@@ -477,9 +478,13 @@ function userChannelsCell(u) {
     const st = u.totp_confirmed ? "подтверждён" : "ожидает confirm";
     items.push(`<span class="channel-tag${active}">TOTP: ${esc(st)}</span>`);
   }
-  if (u.expressms_id) {
+  if (u.express_channel_enabled) {
     const active = u.otp_method === "EXPRESSMS" ? " channel-active" : "";
-    items.push(`<span class="channel-tag${active}">ExpressMS: ${esc(u.expressms_id)}</span>`);
+    const bits = [];
+    if (u.ldap_email) bits.push("email AD");
+    if (u.expressms_id) bits.push("chat " + u.expressms_id);
+    const detail = bits.length ? bits.join(", ") : "нет email/chat";
+    items.push(`<span class="channel-tag${active}">Express: ${esc(detail)}</span>`);
   }
   if (u.telegram_chat_id) {
     const active = u.otp_method === "TELEGRAM" ? " channel-active" : "";
@@ -500,16 +505,23 @@ function totpStatusText(u) {
 function expressStatusText(u) {
   const email = (u.ldap_email || "").trim();
   const chat = (u.expressms_id || "").trim();
+  const on = !!u.express_channel_enabled;
+  if (!on) {
+    if (email || chat) {
+      return "Express: выключен — push не используется. Включите галку ниже.";
+    }
+    return "Express: выключен. Для push нужен email в AD (LDAP-синк) или /start боту.";
+  }
   if (email && chat) {
-    return "Express: email " + email + " + chat_id (кэш). Push доступен.";
+    return "Express: включён — " + email + ", chat_id " + chat + ".";
   }
   if (email) {
-    return "Express: email " + email + " (lookup BotX). /start не обязателен.";
+    return "Express: включён — push по email " + email + " (lookup BotX). /start не обязателен.";
   }
   if (chat) {
-    return "Express: только chat_id, без email AD — лучше догрузить LDAP.";
+    return "Express: включён — только chat_id, без email AD — лучше догрузить LDAP.";
   }
-  return "Express: нет email в AD и нет chat_id — push недоступен.";
+  return "Express: включён, но нет email в AD и нет chat_id — push не сработает.";
 }
 
 let userEditId = null;
@@ -567,6 +579,7 @@ function openUserEdit(user) {
     "Порядок входа задаётся политикой (TOTP / Express push / push→TOTP). Здесь — каналы пользователя.";
   $("#user-edit-err").textContent = "";
   $("#ue-totp-status").textContent = totpStatusText(user);
+  $("#ue-express-enabled").checked = !!user.express_channel_enabled;
   $("#ue-express-status").textContent = expressStatusText(user);
   $("#ue-expressms").value = user.expressms_id || "";
   $("#ue-telegram").value = user.telegram_chat_id || "";
@@ -1384,6 +1397,7 @@ $("#user-edit-form").addEventListener("submit", async (e) => {
   if (!userEditId) return;
   $("#user-edit-err").textContent = "";
   const body = {
+    express_channel_enabled: $("#ue-express-enabled").checked,
     expressms_id: $("#ue-expressms").value.trim() || null,
     telegram_chat_id: $("#ue-telegram").value.trim() || null,
   };
@@ -1590,14 +1604,17 @@ function renderPolicyForm(p) {
         "mfa_scenario",
         [
           { value: "totp", label: "Только TOTP" },
-          { value: "express_push", label: "Express push (Approve/Deny)" },
+          {
+            value: "express_push",
+            label: "Express push, если включён у пользователя; иначе TOTP",
+          },
           {
             value: "express_push_then_totp",
-            label: "Сначала Express push, при таймауте — TOTP",
+            label: "Push в Express (если включён), при таймауте — TOTP; иначе сразу TOTP",
           },
         ],
         p.mfa_scenario || (p.expressms_mode === "push" ? "express_push" : "totp"),
-        "Порядок задаёт политика. У пользователя — доступные каналы (TOTP и/или Express по email). Deny в Express всегда отказ, без перехода на TOTP."
+        "Канал Express у пользователя — галка «Получать push в Express» (админка или приглашение). Включён и есть email/chat — push; выключен — TOTP (если настроен). Deny в Express — отказ, без TOTP. Таймаут push → TOTP только в третьем варианте."
       )}
       ${field(
         "Ожидание Approve (сек)",
@@ -1719,9 +1736,9 @@ function wirePolicyUiOnce() {
         `Режим: ${p.radius_scheme_preference === "otp_only" ? "только OTP" : "challenge (AD + OTP)"}`,
         `Сценарий: ${
           p.mfa_scenario === "express_push_then_totp"
-            ? "push → TOTP"
+            ? "push (если Express вкл.) → TOTP; иначе TOTP"
             : p.mfa_scenario === "express_push"
-              ? "Express push"
+              ? "push (если Express вкл.), иначе TOTP"
               : "только TOTP"
         }`,
         `Ожидание push: ${p.push_wait_seconds != null ? p.push_wait_seconds : "—"} с`,

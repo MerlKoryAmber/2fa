@@ -42,7 +42,7 @@ sudo ./scripts/install.sh --skip-pkgs
 sudo ./scripts/install.sh --skip-express
 ```
 
-`install.sh` / `update.sh` спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY` (секрет без эха), собирают `express-bot`. «Адрес бота» в Express: `https://<этот-хост>:8030/command`. Флаг `--skip-express` — не спрашивать.
+`install.sh` / `update.sh` спрашивают `BOTX_API_HOST`, `BOT_ID`, `BOT_SECRET_KEY` (секрет без эха), собирают `express-bot`. «Адрес бота» в Express: `https://<этот-хост>:8030` (без `/command` — BotX допишет сам). Флаг `--skip-express` — не спрашивать.
 
 | Скрипт | Назначение |
 |--------|------------|
@@ -67,7 +67,7 @@ curl -sk https://127.0.0.1/health
 ```
 
 Админка: `https://<IP>/` (self-signed по умолчанию; браузер предупредит).  
-HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`. Alembic head после update: **009**.
+HTTP `:80` → HTTPS. API: `http://<IP>:8000/health`. Alembic head после update: **010**.
 
 ### Lab credentials (сменить перед prod)
 
@@ -171,6 +171,7 @@ Telegram chat_id пока вручную (enroll / модал пользоват
 | **007** | `admins.auth_source` (local / ad), группы AD для операторов/аудиторов |
 | **008** | `policies.expressms_mode` (`otp` / `push`, default `otp`) |
 | **009** | `policies.mfa_scenario` + `push_wait_seconds` (каналы юзера, порядок в политике) |
+| **010** | `users.express_channel_enabled` — явное включение push в Express (админка / enroll) |
 
 ## Деплой после правок кода
 

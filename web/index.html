@@ -272,6 +272,13 @@
       <p id="user-edit-sub" class="modal-message muted"></p>
       <form id="user-edit-form" class="settings-stack modal-form">
         <p id="ue-totp-status" class="field-hint"></p>
+        <div class="field field-check">
+          <label class="check-row" for="ue-express-enabled">
+            <input type="checkbox" id="ue-express-enabled" name="express_channel_enabled" />
+            <span>Получать push в Express</span>
+          </label>
+          <p class="field-hint">Включите, если пользователь должен получать Approve/Deny в Express при сценарии push в политике. Нужен email в AD или привязка через /start боту.</p>
+        </div>
         <p id="ue-express-status" class="field-hint"></p>
         <div class="field">
           <label for="ue-expressms">Кэш chat_id Express (опционально)</label>

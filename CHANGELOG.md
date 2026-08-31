@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-31 (МСК) — галка Express-канала у пользователя
+
+- `users.express_channel_enabled` (Alembic **010**): push только при явном включении; миграция включает у кого уже есть `expressms_id`
+- Админка «Настроить 2FA» и enroll: галка «Получать push в Express»; `/start` бота включает канал
+- Список пользователей: Express в каналах только при включённой галке (не «у всех с email AD»)
+- Политика: подписи сценариев 2/3 — push если Express вкл. у пользователя, иначе TOTP (логика уже была в RADIUS)
+- Express-bot README / install: «Адрес бота» **без** `/command` на конце (BotX дописывает пути сам)
+
 ## 2026-08-25 (МСК) — smoke update без RADIUS secret в логе
 
 - `update.sh` / `install.sh` smoke `/internal/radius/config`: в вывод только HTTP-код и `secret_set`/`secret_len`, не сам shared secret

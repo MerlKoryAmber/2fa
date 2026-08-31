@@ -12,7 +12,9 @@ def user_has_totp(user: User) -> bool:
 
 
 def user_has_express(user: User) -> bool:
-    """Push: email из AD (lookup BotX) или кэш chat_id после /start."""
+    """Push: явно включён канал + email из AD (lookup BotX) или кэш chat_id после /start."""
+    if not user.express_channel_enabled:
+        return False
     return bool((user.ldap_email or "").strip() or (user.expressms_id or "").strip())
 
 

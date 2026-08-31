@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.audit import audit
 from app.db import get_db
 from app.express_push import record_decision
+from app.mfa_channels import sync_otp_method_from_channels
 from app.models import OtpChallenge, User
 from app.routers.radius import require_internal
 
@@ -43,6 +44,8 @@ def express_bind(body: BindIn, db: Session = Depends(get_db), _: None = Depends(
         audit(db, "EXPRESS_BIND_MISS", username=email or body.user_huid, reason="user_not_found")
         return {"ok": False, "error": "user_not_found"}
     user.expressms_id = chat
+    user.express_channel_enabled = True
+    sync_otp_method_from_channels(user)
     db.commit()
     audit(db, "EXPRESS_BIND_OK", user_id=user.id, username=user.ad_username)
     return {"ok": True, "ad_username": user.ad_username}

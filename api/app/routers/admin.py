@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api", tags=["admin"])
 
 class UserPatch(BaseModel):
     otp_method: str | None = None
+    express_channel_enabled: bool | None = None
     expressms_id: str | None = None
     telegram_chat_id: str | None = None
 
@@ -100,6 +101,8 @@ def patch_user(
         if body.otp_method not in VALID_METHODS:
             raise HTTPException(400, "Invalid method")
         user.otp_method = body.otp_method
+    if body.express_channel_enabled is not None:
+        user.express_channel_enabled = body.express_channel_enabled
     if body.expressms_id is not None:
         user.expressms_id = body.expressms_id or None
     if body.telegram_chat_id is not None:

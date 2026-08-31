@@ -31,6 +31,7 @@ class User(Base):
     ad_username: Mapped[str] = mapped_column(String(256), unique=True, index=True)
     otp_method: Mapped[str] = mapped_column(String(32), default="NONE")
     expressms_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    express_channel_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ldap_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)

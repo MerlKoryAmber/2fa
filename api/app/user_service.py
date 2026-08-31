@@ -14,6 +14,7 @@ def user_row(u: User) -> dict:
         "has_totp": bool(u.totp_secret_encrypted),
         "channel_totp": user_has_totp(u),
         "channel_express": user_has_express(u),
+        "express_channel_enabled": bool(u.express_channel_enabled),
         "channel_telegram": user_has_telegram(u),
         "expressms_id": u.expressms_id,
         "telegram_chat_id": u.telegram_chat_id,

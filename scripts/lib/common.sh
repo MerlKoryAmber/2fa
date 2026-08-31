@@ -419,7 +419,7 @@ configure_express_bot() {
   fi
 
   log "--- Express-бот (push Approve/Deny) ---"
-  log "слушает этот хост :8030; «Адрес бота» в Express: https://<этот-хост>:8030/command"
+  log "слушает этот хост :8030; «Адрес бота» в Express: https://<этот-хост>:8030 (без /command)"
   log "BOTX_API_HOST — CTS/API отправки (не порт 8030)"
 
   if express_bot_configured; then
